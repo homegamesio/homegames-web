@@ -52,8 +52,6 @@ const initSocket = (port) => {
     };
 
     socket.onmessage = function(msg) {
-        console.log("GOT MESSAGE");
-        console.log(msg);
         currentBuf = new Uint8ClampedArray(msg.data);
         if (currentBuf[0] == 2) {
             window.playerId = currentBuf[1];
@@ -64,7 +62,6 @@ const initSocket = (port) => {
             let gameHeight2 = String(currentBuf[5]);//.length > 1 ? currentBuf[5] : '0' + currentBuf[5];
             initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
         } else if (currentBuf[0] == 1) {
-            console.log("STORING ASSETS");
             storeAssets(currentBuf);
         } else if (currentBuf[0] === 5) {
             let a = String(currentBuf[1]);
@@ -142,14 +139,8 @@ function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let color, startX, startY, width, height;
     let i = 0;
-    let its = 0;
     
     while (buf && i < buf.length) {
-        its += 1;
-
-        if (its > 5) {
-            break;
-        }
         const frameType = buf[i];
 
         const playerId = 0;//buf[i + 1];
@@ -157,15 +148,6 @@ function renderBuf(buf) {
 
         let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
-//        while (bufIndex < frameSize) {
-//            const miniFrameType = buf[bufIndex];
-//            const miniFrameSize = buf[bufIndex + 1];
-//            if (miniFrameType == 43) {
-//                console.log("ID");
-//                console.log(buf[bufIndex + 2]);
-//            }
-//            bufIndex += miniFrameSize;
-//        }
         console.log(thing);
 
         i += frameSize;
@@ -245,14 +227,11 @@ function renderBuf(buf) {
             }
         }
 
-        console.log("increasing");
-        console.log(frameSize);
         i += frameSize;
     }
 }
 
 function req() {
-    console.log(currentBuf);
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
     //window.requestAnimationFrame(req);
