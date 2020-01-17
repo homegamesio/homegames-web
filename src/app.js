@@ -138,7 +138,6 @@ const storeAssets = (buf) => {
 
 function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let color, startX, startY, width, height;
     let i = 0;
     
     while (buf && i < buf.length) {
@@ -154,7 +153,7 @@ function renderBuf(buf) {
 
             if (thing.color && thing.size) {
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                ctx.fillRect(thing.pos.x * horizontalScale, thing.pos.y * verticalScale, thing.size.x * horizontalScale, thing.size.y * verticalScale);
+                ctx.fillRect(thing.pos.x * horizontalScale / 100, thing.pos.y * verticalScale / 100, thing.size.x * horizontalScale / 100, thing.size.y * verticalScale / 100);
             }
 
             if (thing.text) {
