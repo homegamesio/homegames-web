@@ -69,7 +69,8 @@ const initSocket = (port) => {
             let newPort = a + b;
             initSocket(Number(newPort).toString());
         } else if (currentBuf[0] == 3) {
-            currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
+            req();
+            //currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
         }
     };
 };
@@ -148,93 +149,68 @@ function renderBuf(buf) {
 
         let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
-        console.log(thing);
-
-        i += frameSize;
-
-        continue;
-       // if (playerId !== 0 && playerId !== window.playerId) {
-       //     console.log(playerId);
-       //     console.log("THIS ONE?");
-       //     i += frameSize;
-       //     continue;
-       // }
-        const start = i + 2;
-        color = buf.slice(start, start + 4);
-        startX = ((buf[start + 4] / 100) + (buf[start + 5] / 10000)) * horizontalScale;
-        startY = ((buf[start + 6] / 100) + (buf[start + 7] / 10000)) * verticalScale;
-        width = ((buf[start + 8] / 100) + (buf[start + 9] / 10000)) * horizontalScale;
-        height = ((buf[start + 10] / 100) + (buf[start + 11] / 10000)) * verticalScale;
-        ctx.fillStyle = "rgba(" + color[0] + "," + color[1] + "," + color[2] + "," + color[3] + ")";
-        ctx.fillRect(startX, startY, width, height);
         
-        // has text
-        if (frameSize > 15) {
-            const textX = (buf[start + 12] / 100) * horizontalScale;
-            const textY = (buf[start + 13] / 100) * verticalScale;
-            const textSize = buf[start + 14];
-            const textArray = buf.slice(start + 15, start + 15 + 32);
-            const textStripped = textArray.filter(x => x);
-            const text = String.fromCharCode.apply(null, textStripped);
-            if (text) {
-                // todo: encode this in the payload
+        if (thing.playerId === 0 || thing.playerId === window.playerId) {
+
+            if (thing.color && thing.size) {
+                ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
+                ctx.fillRect(thing.pos.x * horizontalScale, thing.pos.y * verticalScale, thing.size.x * horizontalScale, thing.size.y * verticalScale);
+            }
+
+            if (thing.text) {
                 ctx.fillStyle = "black";
-                let fontSize = textSize * scaleFactor;
+                const fontSize = thing.text.size * scaleFactor;
                 ctx.font = fontSize + "px sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
-                ctx.fillText(text, textX, textY);
+                ctx.fillText(thing.text.text, thing.text.x * horizontalScale / 100, thing.text.y * verticalScale / 100);
             }
-        }
 
-        if (frameSize > 1 + 3 + 46) { 
-            const assetPosX = buf[start + 47];
-            const assetPosY = buf[start + 48];
-            
-            const assetSizeX = buf[start + 49];
-            const assetSizeY = buf[start + 50];
+            if (thing.asset) {
+                const assetKey = Object.keys(thing.asset)[0];
 
-            const assetKeyArray = buf.slice(start + 51, start + 51 + 32);
-            const assetKey = String.fromCharCode.apply(null, assetKeyArray.filter(x => x));
-            
-            if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                if (audioCtx) {
-                    source = audioCtx.createBufferSource();
-                    source.connect(audioCtx.destination);
-                    source.buffer = gameAssets[assetKey].data;
-                    source.start(0);
+                if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
+                    if (audioCtx) {
+                        source = audioCtx.createBufferSource();
+                        source.connect(audioCtx.destination);
+                        source.buffer = gameAssets[assetKey].data;
+                        source.start(0);
+                    } else {
+                        console.warn("Cant play audio");
+                    }
                 } else {
-                    console.warn("Cant play audio");
-                }
-            } else {
-                let image;
-                if (imageCache[assetKey]) {
-                    image = imageCache[assetKey];
-                    ctx.drawImage(image, (assetPosX / 100) * horizontalScale, 
-                        (assetPosY / 100) * verticalScale, image.width, image.height);
-                } else {
-                    image = new Image(assetSizeX / 100 * horizontalScale, assetSizeY / 100 * verticalScale);
-                    imageCache[assetKey] = image;
-                    image.onload = () => {
-                        ctx.drawImage(image, (assetPosX / 100) * horizontalScale, 
-                            (assetPosY / 100) * verticalScale, image.width, image.height);
-                    };
+                    const asset = thing.asset[assetKey];
+                    let image;
 
-                    if (gameAssets[assetKey]) {
-                        image.src = gameAssets[assetKey].data;
+                    if (imageCache[assetKey]) {
+                        image = imageCache[assetKey];
+                        ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
+                            (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                    } else {
+                        image = new Image(asset.size.x / 100 * horizontalScale, asset.size.y / 100 * verticalScale);
+                        imageCache[assetKey] = image;
+                        image.onload = () => {
+                            ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
+                                (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                        };
+
+                        if (gameAssets[assetKey]) {
+                            image.src = gameAssets[assetKey].data;
+                        }
                     }
                 }
-            }
-        }
 
-        i += frameSize;
+            }
+
+            i += frameSize;
+        }
     }
 }
 
 function req() {
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
-    //window.requestAnimationFrame(req);
+    window.requestAnimationFrame(req);
 }
 
 const click = function(x, y) {
