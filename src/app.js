@@ -51,6 +51,7 @@ const initSocket = (port) => {
     socket.onclose = () => {
     };
 
+    let rendered;
     socket.onmessage = function(msg) {
         currentBuf = new Uint8ClampedArray(msg.data);
         if (currentBuf[0] == 2) {
@@ -68,9 +69,11 @@ const initSocket = (port) => {
             let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
             let newPort = a + b;
             initSocket(Number(newPort).toString());
-        } else if (currentBuf[0] == 3) {
-            req();
-            //currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
+        } else if (currentBuf[0] == 3 && !rendered) {
+            if (!rendered) {
+                rendered = true;
+                req();
+            }
         }
     };
 };
