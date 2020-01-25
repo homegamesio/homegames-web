@@ -204,8 +204,9 @@ function renderBuf(buf) {
 
             }
 
-            i += frameSize;
         }
+
+        i += frameSize;
     }
 }
 
