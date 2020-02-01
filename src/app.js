@@ -210,7 +210,161 @@ function renderBuf(buf) {
     }
 }
 
+let gamepads;
+
+const getGamepadMappings = (gamepadId) => {
+    if (gamepadId.indexOf('Xbox 360') >= 0 || gamepadId.indexOf('Xbox One') >= 0) { 
+        const leftStickXIndex = 0;
+        const leftStickYIndex = 1;
+
+        const rightStickXIndex = 2;
+        const rightStickYIndex = 3;
+
+        const stickInputThreshold = 0.2;
+
+        const aButtonIndex = 0;
+        const bButtonIndex = 1;
+        const xButtonIndex = 2;
+        const yButtonIndex = 3;
+
+        const stickMappings = {
+            [leftStickXIndex]: (val) => {
+                if (Math.abs(val) >= stickInputThreshold) {
+                    if (val < 0) {
+                        keydown('a');
+                        keysDown['a'] = true;
+                    } else {
+                        keydown('d');
+                        keysDown['d'] = true;
+                    }
+                } else {
+                    keysDown['a'] = false;
+                    keysDown['d'] = false;
+                }
+            },
+            [leftStickYIndex]: (val) => {
+                if (Math.abs(val) >= stickInputThreshold) {
+                    if (val < 0) {
+                        keydown('w');
+                        keysDown['w'] = true;
+                    } else {
+                        keydown('s');
+                        keysDown['s'] = true;
+                    }
+                } else {
+                    keysDown['w'] = false;
+                    keysDown['s'] = false;
+                }
+            },
+            [rightStickXIndex]: (val) => {
+                if (Math.abs(val) >= stickInputThreshold) {
+                    if (val < 0) {
+                        keydown('ArrowLeft');
+                        keysDown['ArrowLeft'] = true;
+                    } else {
+                        keydown('ArrowRight');
+                        keysDown['ArrowRight'] = true;
+                    }
+                } else {
+                    keysDown['ArrowLeft'] = false;
+                    keysDown['ArrowRight'] = false;
+                }
+            },
+            [rightStickYIndex]: (val) => {
+                if (Math.abs(val) >= stickInputThreshold) {
+                    if (val < 0) {
+                        keydown('ArrowUp');
+                        keysDown['ArrowUp'] = true;
+                    } else {
+                        keydown('ArrowDown');
+                        keysDown['ArrowDown'] = true;
+                    }
+                } else {
+                    keysDown['ArrowDown'] = false;
+                    keysDown['ArrowUp'] = false;
+                }
+            }
+        };
+
+        const buttonMappings = {
+            [aButtonIndex]: {
+                press: () => {
+                    console.log('cio');
+                },
+                depress: () => {
+                    console.log(':(');
+                }
+            },
+            [bButtonIndex]: {
+                press: () => {
+                    console.log('b');
+                },
+                depress: () => {
+                    console.log('no b');
+                }
+            },
+            [xButtonIndex]: {
+                press: () => {
+                    console.log('x');
+                },
+                depress: () => {
+                    console.log('no x');
+                }
+            },
+            [yButtonIndex]: {
+                press: () => {
+                    console.log('y');
+                },
+                depress: () => {
+                    console.log('no y');
+                }
+
+            }
+        }
+
+        return {
+            stickMappings,
+            buttonMappings
+        }
+    }
+};
+
+const gamepadsPressed = {};
+
 function req() {
+    gamepads = navigator.getGamepads();
+
+    if (gamepads.length > 0) {
+
+        for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) { 
+            const gamepad = gamepads[gamepadIndex];
+            if (gamepad) {
+                if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
+                    gamepadsPressed[gamepadIndex] = {};
+                }
+                const inputMappings = getGamepadMappings(gamepad.id);
+                if (inputMappings) {
+                    for (let stickIndex in inputMappings.stickMappings) {
+                        inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
+                    }
+
+                    for (let buttonIndex in inputMappings.buttonMappings) {
+                        if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
+                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                        }
+                        if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
+                            gamepadsPressed[gamepadIndex][buttonIndex] = true;
+                            inputMappings.buttonMappings[buttonIndex].press();
+                        } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
+                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                            inputMappings.buttonMappings[buttonIndex].depress();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
     window.requestAnimationFrame(req);
