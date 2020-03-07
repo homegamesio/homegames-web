@@ -29,8 +29,6 @@ socketWorker.onmessage = (socketMessage) => {
             port: Number(newPort)
         }));
 
-
-        //initSocket(Number(newPort).toString());
     } else if (currentBuf[0] == 3 && !rendered) {
         rendered = true;
         req();
@@ -50,8 +48,6 @@ let horizontalScale = 1;
 let verticalScale = 1;
 let scaleFactor = 1;
 
-window.playerId = null;
-
 let mouseDown = false;
 const keysDown = {};
 
@@ -65,53 +61,6 @@ const ctx = canvas.getContext("2d");
 
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 720;
-
-//const initSocket = (port) => {
-//    socket = new WebSocket("ws://" + hostname + ":" + port);
-//
-//    socket.binaryType = "arraybuffer";
-//
-//    socket.onopen = () => {
-//        socket.send(JSON.stringify({
-//            type: "ready",
-//            id: window.playerId || null
-//        }));
-//    };
-//
-//    socket.onerror = (err) => {
-//        console.log("ERROR");
-//        console.log(err);
-//    };
-//
-//    socket.onclose = () => {
-//    };
-//
-//    let rendered;
-//    socket.onmessage = function(msg) {
-//        currentBuf = new Uint8ClampedArray(msg.data);
-//        if (currentBuf[0] == 2) {
-//            window.playerId = currentBuf[1];
-//            let gameWidth1 = String(currentBuf[2]);
-//            let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
-//
-//            let gameHeight1 = String(currentBuf[4]);
-//            let gameHeight2 = String(currentBuf[5]);//.length > 1 ? currentBuf[5] : '0' + currentBuf[5];
-//            initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
-//        } else if (currentBuf[0] == 1) {
-//            storeAssets(currentBuf);
-//        } else if (currentBuf[0] === 5) {
-//            let a = String(currentBuf[1]);
-//            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-//            let newPort = a + b;
-//            initSocket(Number(newPort).toString());
-//        } else if (currentBuf[0] == 3 && !rendered) {
-//            if (!rendered) {
-//                rendered = true;
-//                req();
-//            }
-//        }
-//    };
-//};
 
 const initCanvas = (gameWidth, gameHeight) => {
     let windowWidth = window.innerWidth;
@@ -128,7 +77,6 @@ const initCanvas = (gameWidth, gameHeight) => {
 };
 
 initCanvas(DEFAULT_WIDTH, DEFAULT_HEIGHT);
-//initSocket(7000);
 
 const storeAssets = (buf) => {
     let i = 0;
@@ -179,12 +127,8 @@ function renderBuf(buf) {
     let i = 0;
     
     while (buf && i < buf.length) {
-        const frameType = buf[i];
-
-        const playerId = 0;//buf[i + 1];
         const frameSize = buf[i + 1];
 
-        let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
         
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
@@ -416,17 +360,13 @@ const click = function(x, y) {
 };
 
 const keydown = function(key) {
-    if (socket) {
-        const payload = {type: "keydown",  key: key};
-        socket.readyState === 1 && socket.send(JSON.stringify(payload));
-    }
+    const payload = {type: "keydown",  key: key};
+    socketWorker.postMessage(JSON.stringify(payload));
 };
 
 const keyup = function(key) {
-    if (socket) {
-        const payload = {type: "keyup",  key: key};
-        socket.readyState === 1 && socket.send(JSON.stringify(payload));
-    }
+    const payload = {type: "keyup",  key: key};
+    socketWorker.postMessage(JSON.stringify(payload));
 };
 
 const unlock = () => {

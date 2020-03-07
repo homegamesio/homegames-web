@@ -20,7 +20,7 @@ const PATH_MAP = {
         contentType: "image/x-icon"
     },
     "/socket.js": {
-        path: "web/socket.js",
+        path: "src/socket.js",
         contentType: "text/javascript"
     }
 };
