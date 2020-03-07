@@ -1,8 +1,47 @@
 const { GameNode, squish, unsquish, Colors } = require('squishjs');
 
-const hostname = window.location.hostname;
+const socketWorker = new Worker('socket.js');
 
-let socket;
+let currentBuf;
+
+let rendered = false;
+
+socketWorker.onmessage = (socketMessage) => {
+    currentBuf = socketMessage.data;
+    if (currentBuf[0] == 2) {
+        window.playerId = currentBuf[1];
+        let gameWidth1 = String(currentBuf[2]);
+        let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
+
+        let gameHeight1 = String(currentBuf[4]);
+        let gameHeight2 = String(currentBuf[5]);//.length > 1 ? currentBuf[5] : '0' + currentBuf[5];
+        initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
+    } else if (currentBuf[0] == 1) {
+        storeAssets(currentBuf);
+    } else if (currentBuf[0] === 5) {
+        let a = String(currentBuf[1]);
+        let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+        let newPort = a + b;
+
+        socketWorker.postMessage(JSON.stringify({
+            hostname: window.location.hostname,
+            playerId: window.playerId || null,
+            port: Number(newPort)
+        }));
+
+
+        //initSocket(Number(newPort).toString());
+    } else if (currentBuf[0] == 3 && !rendered) {
+        rendered = true;
+        req();
+    }
+};
+
+socketWorker.postMessage(JSON.stringify({
+    hostname: window.location.hostname,
+    playerId: window.playerId || null,
+    port: 7000
+}));
 
 let gamepad;
 let moving;
@@ -27,56 +66,52 @@ const ctx = canvas.getContext("2d");
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 720;
 
-let currentBuf;
-let rendering = false;
-
-const initSocket = (port) => {
-    socket && socket.close();
-    socket = new WebSocket("ws://" + hostname + ":" + port);
-
-    socket.binaryType = "arraybuffer";
-
-    socket.onopen = () => {
-        socket.send(JSON.stringify({
-            type: "ready",
-            id: window.playerId || null
-        }));
-    };
-
-    socket.onerror = (err) => {
-        console.log("ERROR");
-        console.log(err);
-    };
-
-    socket.onclose = () => {
-    };
-
-    let rendered;
-    socket.onmessage = function(msg) {
-        currentBuf = new Uint8ClampedArray(msg.data);
-        if (currentBuf[0] == 2) {
-            window.playerId = currentBuf[1];
-            let gameWidth1 = String(currentBuf[2]);
-            let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
-
-            let gameHeight1 = String(currentBuf[4]);
-            let gameHeight2 = String(currentBuf[5]);//.length > 1 ? currentBuf[5] : '0' + currentBuf[5];
-            initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
-        } else if (currentBuf[0] == 1) {
-            storeAssets(currentBuf);
-        } else if (currentBuf[0] === 5) {
-            let a = String(currentBuf[1]);
-            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-            let newPort = a + b;
-            initSocket(Number(newPort).toString());
-        } else if (currentBuf[0] == 3 && !rendered) {
-            if (!rendered) {
-                rendered = true;
-                req();
-            }
-        }
-    };
-};
+//const initSocket = (port) => {
+//    socket = new WebSocket("ws://" + hostname + ":" + port);
+//
+//    socket.binaryType = "arraybuffer";
+//
+//    socket.onopen = () => {
+//        socket.send(JSON.stringify({
+//            type: "ready",
+//            id: window.playerId || null
+//        }));
+//    };
+//
+//    socket.onerror = (err) => {
+//        console.log("ERROR");
+//        console.log(err);
+//    };
+//
+//    socket.onclose = () => {
+//    };
+//
+//    let rendered;
+//    socket.onmessage = function(msg) {
+//        currentBuf = new Uint8ClampedArray(msg.data);
+//        if (currentBuf[0] == 2) {
+//            window.playerId = currentBuf[1];
+//            let gameWidth1 = String(currentBuf[2]);
+//            let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
+//
+//            let gameHeight1 = String(currentBuf[4]);
+//            let gameHeight2 = String(currentBuf[5]);//.length > 1 ? currentBuf[5] : '0' + currentBuf[5];
+//            initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
+//        } else if (currentBuf[0] == 1) {
+//            storeAssets(currentBuf);
+//        } else if (currentBuf[0] === 5) {
+//            let a = String(currentBuf[1]);
+//            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+//            let newPort = a + b;
+//            initSocket(Number(newPort).toString());
+//        } else if (currentBuf[0] == 3 && !rendered) {
+//            if (!rendered) {
+//                rendered = true;
+//                req();
+//            }
+//        }
+//    };
+//};
 
 const initCanvas = (gameWidth, gameHeight) => {
     let windowWidth = window.innerWidth;
@@ -93,7 +128,7 @@ const initCanvas = (gameWidth, gameHeight) => {
 };
 
 initCanvas(DEFAULT_WIDTH, DEFAULT_HEIGHT);
-initSocket(7000);
+//initSocket(7000);
 
 const storeAssets = (buf) => {
     let i = 0;
@@ -372,14 +407,12 @@ function req() {
 }
 
 const click = function(x, y) {
-    if (socket) {
-        const pixelWidth = canvas.width / window.gameWidth;
-        const pixelHeight = canvas.height / window.gameHeight;
-        const clickX = Math.floor((x + window.scrollX) / pixelWidth);
-        const clickY = Math.floor((y + window.scrollY) / pixelHeight);
-        const payload = {type: "click",  data: {x: clickX, y: clickY}};
-        socket.readyState === 1 && socket.send(JSON.stringify(payload));
-    }
+    const pixelWidth = canvas.width / window.gameWidth;
+    const pixelHeight = canvas.height / window.gameHeight;
+    const clickX = Math.floor((x + window.scrollX) / pixelWidth);
+    const clickY = Math.floor((y + window.scrollY) / pixelHeight);
+    const payload = {type: "click",  data: {x: clickX, y: clickY}};
+    socketWorker.postMessage(JSON.stringify(payload));
 };
 
 const keydown = function(key) {
