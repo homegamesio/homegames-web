@@ -19,8 +19,8 @@ const PATH_MAP = {
         path: "web/favicon.ico",
         contentType: "image/x-icon"
     },
-    "/socket.js": {
-        path: "src/socket.js",
+    "/worker.js": {
+        path: "web/worker.js",
         contentType: "text/javascript"
     }
 };
