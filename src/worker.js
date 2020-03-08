@@ -6,6 +6,7 @@ let playerId;
 let windowWidth;
 let windowHeight;
 let scaleFactor;
+let hostname;
 
 const gameAssets = {};
 const imageCache = {};
@@ -19,8 +20,8 @@ const renderBuf = (buf) => {
         const frameSize = buf[i + 1];
 
         let thing = unsquish(buf.slice(i, i + frameSize));
-        
-        if (thing.playerId === 0 || thing.playerId === window.playerId) {
+
+        if (thing.playerId === 0 || thing.playerId === playerId) {
 
             if (thing.color && thing.size) {
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
@@ -50,29 +51,17 @@ const renderBuf = (buf) => {
                     }
                 } else {
                     const asset = thing.asset[assetKey];
-                    let image;
-
                     if (imageCache[assetKey]) {
-                        image = imageCache[assetKey];
+                        const image = imageCache[assetKey];
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
-                            (asset.pos.y / 100) * canvas.height, image.width, image.height);
+                            (asset.pos.y / 100) * canvas.height, (asset.size.x / 100) * canvas.width, (asset.size.y / 100) * canvas.height);
                     } else {
-//                        console.log("NEED TO PAINT");
-//                        console.log(gameAssets[assetKey]);
-                        //const blob = new Blob([gameAssets[assetKey].data]);
-                        createImageBitmap(gameAssets[assetKey].data).then(thang => {
-                            imageCache[assetKey] = thang;
-                        });
-  //                      image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
-//                        imageCache[assetKey] = image;
-//                        image.onload = () => {
-//                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
-//                                (asset.pos.y / 100) * canvas.height, image.width, image.height);
-//                        };
+                        createImageBitmap(gameAssets[assetKey].data).then(image=> {
+                            imageCache[assetKey] = image;
 
-//                        if (gameAssets[assetKey]) {
-//                            image.src = gameAssets[assetKey].data;
-//                        }
+                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                                (asset.pos.y / 100) * canvas.height, (asset.size.x / 100) * canvas.width, (asset.size.y / 100) * canvas.height);
+                        });
                     }
                 }
 
@@ -85,7 +74,6 @@ const renderBuf = (buf) => {
 }
 
 const storeAssets = (buf) => {
-    console.log("STORING ASSETS");
     let i = 0;
 
     while (buf && i < buf.length) {
@@ -107,7 +95,6 @@ const storeAssets = (buf) => {
                 }
                 //const imgBase64 = btoa(imgBase64String);
                 //gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
-                console.log("WHAT THE FUCK");
                 gameAssets[payloadKey] = {'type': 'image', 'data': new Blob([new Uint8Array(payloadData)])};
 
                 i += 6 + payloadLength;
@@ -148,18 +135,28 @@ const handleSocketMessage = (buf) => {
 
         const gameHeight1 = String(buf[4]);
         const gameHeight2 = String(buf[5]);
+        postMessage({
+            gameInfo: {
+                width: Number(gameWidth1 + gameWidth2),
+                height: Number(gameHeight1 + gameHeight2),
+            }
+        });
         initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
     } else if (buf[0] == 1) {
         storeAssets(buf);
-        //console.log(gameAssets);
     } else if (buf[0] == 3) {
         renderBuf(buf);
+    } else if (buf[0] === 5) {
+        let a = String(buf[1]);
+        let b = String(buf[2]).length > 1 ? buf[2] : "0" + buf[2];
+        let newPort = a + b;
+        initSocket(Number(newPort).toString());
     }
 };
 
-const initSocket = (socketInfo) => {
+const initSocket = (port) => {
     socket && socket.close();
-    socket = new WebSocket(`ws://${socketInfo.hostname}:${socketInfo.port}`);
+    socket = new WebSocket(`ws://${hostname}:${port}`);
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {
@@ -176,11 +173,14 @@ const initSocket = (socketInfo) => {
 
 onmessage = (msg) => {
     if (msg.data.socketInfo) {
-        initSocket(msg.data.socketInfo);
+        hostname = msg.data.socketInfo.hostname;
+        initSocket(msg.data.socketInfo.port);
     } else if (msg.data.windowInfo) {
         windowWidth = msg.data.windowInfo.width;
         windowHeight = msg.data.windowInfo.height;
     } else if (msg.data.canvas) {
         canvas = msg.data.canvas;
+    } else {
+        socket && socket.readyState === 1 && socket.send(msg.data);
     }
 };
