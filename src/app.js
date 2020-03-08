@@ -7,7 +7,7 @@ let currentBuf;
 let rendered = false;
 
 socketWorker.onmessage = (socketMessage) => {
-    currentBuf = socketMessage.data;
+    currentBuf = new Uint8ClampedArray(socketMessage.data);
     if (currentBuf[0] == 2) {
         window.playerId = currentBuf[1];
         let gameWidth1 = String(currentBuf[2]);
@@ -23,11 +23,13 @@ socketWorker.onmessage = (socketMessage) => {
         let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
         let newPort = a + b;
 
-        socketWorker.postMessage(JSON.stringify({
-            hostname: window.location.hostname,
-            playerId: window.playerId || null,
-            port: Number(newPort)
-        }));
+        socketWorker.postMessage({
+            socketInfo: {
+                hostname: window.location.hostname,
+                playerId: window.playerId || null,
+                port: Number(newPort)
+            }
+        });
 
 
         //initSocket(Number(newPort).toString());
@@ -37,11 +39,13 @@ socketWorker.onmessage = (socketMessage) => {
     }
 };
 
-socketWorker.postMessage(JSON.stringify({
-    hostname: window.location.hostname,
-    playerId: window.playerId || null,
-    port: 7000
-}));
+socketWorker.postMessage({
+    socketInfo: {
+        hostname: window.location.hostname,
+        playerId: window.playerId || null,
+        port: 7000
+    }
+});
 
 let gamepad;
 let moving;
@@ -416,17 +420,13 @@ const click = function(x, y) {
 };
 
 const keydown = function(key) {
-    if (socket) {
-        const payload = {type: "keydown",  key: key};
-        socket.readyState === 1 && socket.send(JSON.stringify(payload));
-    }
+    const payload = {type: "keydown",  key: key};
+    socketWorker.postMessage(JSON.stringify(payload));
 };
 
 const keyup = function(key) {
-    if (socket) {
-        const payload = {type: "keyup",  key: key};
-        socket.readyState === 1 && socket.send(JSON.stringify(payload));
-    }
+    const payload = {type: "keyup",  key: key};
+    socketWorker.postMessage(JSON.stringify(payload));
 };
 
 const unlock = () => {
