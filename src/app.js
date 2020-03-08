@@ -373,9 +373,9 @@ const gamepadsPressed = {};
 function req() {
     gamepads = navigator.getGamepads();
 
-    if (gamepads.length > 0) {
-        Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
+    Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
+    if (gamepads.length > 0) {
         for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) { 
             const gamepad = gamepads[gamepadIndex];
             if (gamepad) {
