@@ -65,7 +65,7 @@ const gameAssets = {};
 const imageCache = {};
 
 const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", {alpha: false});
 
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 720;
@@ -195,7 +195,7 @@ function renderBuf(buf) {
 
             if (thing.color && thing.size) {
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                ctx.fillRect(thing.pos.x * horizontalScale / 100, thing.pos.y * verticalScale / 100, thing.size.x * horizontalScale / 100, thing.size.y * verticalScale / 100);
+                ctx.fillRect(Math.floor(thing.pos.x * horizontalScale / 100), Math.floor(thing.pos.y * verticalScale / 100), Math.floor(thing.size.x * horizontalScale / 100), Math.floor(thing.size.y * verticalScale / 100));
             }
 
             if (thing.text) {

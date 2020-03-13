@@ -7,6 +7,18 @@ const PATH_MAP = {
         path: "web/index.html",
         contentType: "text/html"
     },
+    "/rtc.js": {
+        path: "src/rtc.js",
+        contentType: "text/javascript"
+    },
+    "/perf": {
+        path: "web/perf.html",
+        contentType: "text/html"
+    },
+    "/perf.js": {
+        path: "src/perf.js",
+        contentType: "text/javascript"
+    },
     "/bundle.js": {
         path: "web/bundle.js",
         contentType: "text/javascript"
