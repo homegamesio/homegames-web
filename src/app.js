@@ -277,7 +277,7 @@ const getGamepadMappings = (gamepadId) => {
         const buttonMappings = {
             [aButtonIndex]: {
                 press: () => {
-                    console.log('cio');
+                    console.log('a');
                 },
                 depress: () => {
                     console.log(':(');
