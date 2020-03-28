@@ -10,35 +10,49 @@ let rtcConnection;
 let dataChannel;
 
 const initRtcChannel = () => new Promise((res, rej) => {
-    rtcConnection = new RTCPeerConnection();
-    dataChannel = rtcConnection.createDataChannel('homegames');
-    rtcConnection.onicecandidate = (e) => {
-        if (e.candidate !== null) {
-            socketWorker.postMessage(JSON.stringify({
-                type: 'answer',
-                answer: rtcConnection.localDescription
-            }));
-        }
-    };
-
-    rtcConnection.ondatachannel = (e) => {
-        const chan = e.channel || e;
-
-        chan.onmessage = (msg) => {
-            handleGameBuf(msg.data);
-            //if (!lastTimestamp) {
-            //    lastTimestamp = msg.data;
-           // } else if (msg.data < lastTimestamp) {
-           //         return;
-           // }
+    try {
+        rtcConnection = new RTCPeerConnection({}); 
+        dataChannel = rtcConnection.createDataChannel('homegames');
+        rtcConnection.onicecandidate = (e) => {
+            if (e.candidate !== null) {
+                socketWorker.postMessage(JSON.stringify({
+                    type: 'answer',
+                    answer: rtcConnection.localDescription
+                }));
+            }
         };
-        res();
 
-    };
-    
-    socketWorker.postMessage(JSON.stringify({
-        type: 'RTCPeerRequest'
-    }));
+        const initTimeout = setTimeout(() => {
+            console.warn('RTC channel initialization timeout');
+            res();
+        }, 5000);
+
+        rtcConnection.ondatachannel = (e) => {
+            clearTimeout(initTimeout);
+            const chan = e.channel || e;
+            chan.binaryType = 'arraybuffer';
+
+            chan.onmessage = (msg) => {
+                handleGameBuf(msg.data);
+                //if (!lastTimestamp) {
+                //    lastTimestamp = msg.data;
+               // } else if (msg.data < lastTimestamp) {
+               //         return;
+               // }
+            };
+
+            res();
+
+        };
+        
+        socketWorker.postMessage(JSON.stringify({
+            type: 'RTCPeerRequest'
+        }));
+    } catch(err) {
+        console.error('Failed to initialize RTC channel');
+        console.error(err);
+        res();
+    }
 });
 
 const onSocketOpen = () => {
@@ -232,12 +246,13 @@ function renderBuf(buf) {
 
                     if (imageCache[assetKey]) {
                         image = imageCache[assetKey];
+                    
                         ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
                             (asset.pos.y / 100) * verticalScale, image.width, image.height);
                     } else {
                         image = new Image(asset.size.x / 100 * horizontalScale, asset.size.y / 100 * verticalScale);
-                        imageCache[assetKey] = image;
                         image.onload = () => {
+                            imageCache[assetKey] = image;
                             ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
                                 (asset.pos.y / 100) * verticalScale, image.width, image.height);
                         };
