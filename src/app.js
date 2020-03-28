@@ -6,8 +6,50 @@ let currentBuf;
 
 let rendered = false;
 
-socketWorker.onmessage = (socketMessage) => {
-    currentBuf = new Uint8ClampedArray(socketMessage.data);
+let rtcConnection;
+let dataChannel;
+
+const initRtcChannel = () => new Promise((res, rej) => {
+    rtcConnection = new RTCPeerConnection();
+    dataChannel = rtcConnection.createDataChannel('homegames');
+    rtcConnection.onicecandidate = (e) => {
+        if (e.candidate !== null) {
+            socketWorker.postMessage(JSON.stringify({
+                type: 'answer',
+                answer: rtcConnection.localDescription
+            }));
+        }
+    };
+
+    rtcConnection.ondatachannel = (e) => {
+        const chan = e.channel || e;
+
+        chan.onmessage = (msg) => {
+            handleGameBuf(msg.data);
+            //if (!lastTimestamp) {
+            //    lastTimestamp = msg.data;
+           // } else if (msg.data < lastTimestamp) {
+           //         return;
+           // }
+        };
+        res();
+
+    };
+    
+    socketWorker.postMessage(JSON.stringify({
+        type: 'RTCPeerRequest'
+    }));
+});
+
+const onSocketOpen = () => {
+    socketWorker.postMessage(JSON.stringify({
+        type: "ready",
+        id: playerId
+    }));
+};
+
+const handleGameBuf = (buf) => {
+    currentBuf = new Uint8ClampedArray(buf);
     if (currentBuf[0] == 2) {
         window.playerId = currentBuf[1];
         let gameWidth1 = String(currentBuf[2]);
@@ -34,6 +76,22 @@ socketWorker.onmessage = (socketMessage) => {
     } else if (currentBuf[0] == 3 && !rendered) {
         rendered = true;
         req();
+    }
+};
+
+socketWorker.onmessage = (socketMessage) => {
+    if (typeof(socketMessage.data) === 'string') {
+        const data = JSON.parse(socketMessage.data);
+        if (data.type === 'socketready') {
+            initRtcChannel().then(onSocketOpen);
+        } else if (data.type === 'RTCOffer') {
+            rtcConnection.setRemoteDescription(data.offer);
+            rtcConnection.createAnswer().then(answer => {
+                rtcConnection.setLocalDescription(answer);
+            });
+        }
+    } else {
+        handleGameBuf(socketMessage.data);
     }
 };
 

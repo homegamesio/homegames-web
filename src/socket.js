@@ -5,9 +5,8 @@ const initSocket = (hostname, port, playerId) => {
     socket.binaryType = "arraybuffer";
 
     socket.onopen = () => {
-        socket.send(JSON.stringify({
-            type: "ready",
-            id: playerId
+        postMessage(JSON.stringify({
+            type: 'socketready'
         }));
     };
 
