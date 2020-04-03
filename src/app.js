@@ -143,8 +143,14 @@ function renderBuf(buf) {
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
 
             if (thing.color && thing.size) {
+                if (thing.text && thing.text.text.indexOf('Option') > -1) {
+                    ctx.shadowColor = 'black';
+                    ctx.shadowBlur = 15;
+                }
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
                 ctx.fillRect(Math.floor(thing.pos.x * horizontalScale / 100), Math.floor(thing.pos.y * verticalScale / 100), Math.floor(thing.size.x * horizontalScale / 100), Math.floor(thing.size.y * verticalScale / 100));
+                ctx.shadowColor = null;
+                ctx.shadowBlur = 0;
             }
 
             if (thing.text) {
