@@ -9,6 +9,8 @@ let rendered = false;
 let rtcConnection;
 let dataChannel;
 
+const connections = {};
+
 const initRtcChannel = () => new Promise((res, rej) => {
     try {
         rtcConnection = new RTCPeerConnection({}); 
@@ -28,17 +30,13 @@ const initRtcChannel = () => new Promise((res, rej) => {
         }, 5000);
 
         rtcConnection.ondatachannel = (e) => {
+            console.log("GOT THAT FUKCIN THANG");
             clearTimeout(initTimeout);
             const chan = e.channel || e;
             chan.binaryType = 'arraybuffer';
 
             chan.onmessage = (msg) => {
                 handleGameBuf(msg.data);
-                //if (!lastTimestamp) {
-                //    lastTimestamp = msg.data;
-               // } else if (msg.data < lastTimestamp) {
-               //         return;
-               // }
             };
 
             res();
@@ -93,18 +91,89 @@ const handleGameBuf = (buf) => {
     }
 };
 
+const becomeHost = () => {
+    socketWorker.postMessage(JSON.stringify({
+        type: 'RTCHostRequest'
+    }));
+};
+
 socketWorker.onmessage = (socketMessage) => {
+    console.log('got a thing');
+    console.log(socketMessage);
     if (typeof(socketMessage.data) === 'string') {
         const data = JSON.parse(socketMessage.data);
+
         if (data.type === 'socketready') {
-            initRtcChannel().then(onSocketOpen);
+            const isHost = becomeHost();
+            //initRtcChannel().then(onSocketOpen);
         } else if (data.type === 'RTCOffer') {
             rtcConnection.setRemoteDescription(data.offer);
+            console.log("what");
             rtcConnection.createAnswer().then(answer => {
+                console.log("HI");
+                console.log(answer);
                 rtcConnection.setLocalDescription(answer);
+                socketWorker.postMessage(JSON.stringify({
+                    type: 'RTCAnswer',
+                    answer: rtcConnection.localDescription
+                }));
             });
+        } else if (data.type === 'RTCAnswer') {
+            console.log("GOT AN ANSWER");
+            console.log(data);
+            console.log("HUH");
+            connections[data.targetId].setRemoteDescription(data.answer);
+        } else if (data.type === 'RTCHostResponse') {
+            console.log("DATA");
+            console.log(data);
+            if (data.success) {
+                console.log('im the host');
+            } else {
+                initRtcChannel();
+                console.log('im not the host');
+            }
+        } else if (data.type === 'RTCPeerRequest') {
+            console.log("yo");
+            const connection = new RTCPeerConnection({});
+            connections[data.targetId] = connection;
+            connection.onicecandidate = (e) => {
+                if (e.candidate !== null) {
+                    console.log("Y");
+                    console.log(e);
+                    //socketWorker.postMessage(JSON.stringify({
+                    //    type: 'RTCOffer',
+                    //    offer: connection.localDescription 
+                    //}));
+                }
+            };
+
+            connection.ondatachannel = (e) => {
+                console.log("HOST GOT THAT FUKCIN THANG");
+                const chan = e.channel || e;
+                chan.binaryType = 'arraybuffer';
+
+                chan.onmessage = (msg) => {
+                    handleGameBuf(msg.data);
+                };
+
+                res();
+
+            }; 
+
+            connection.createOffer().then(offer => {
+                console.log("CREATED OFFER");
+                console.log(offer);
+                connection.setLocalDescription(offer);
+                socketWorker.postMessage(JSON.stringify({
+                    type: 'RTCOffer',
+                    offer: connection.localDescription,
+                    targetId: data.targetId
+                }));
+            });
+//            dataChannel = connection.createDataChannel('homegames');
         }
     } else {
+        console.log("HANDLING GAME BUF");
         handleGameBuf(socketMessage.data);
     }
 };
