@@ -17,6 +17,7 @@ socketWorker.onmessage = (socketMessage) => {
         let gameHeight2 = String(currentBuf[5]);
         initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
     } else if (currentBuf[0] == 1) {
+        console.log("GETTING ASSETS");
         storeAssets(currentBuf);
     } else if (currentBuf[0] === 5) {
         let a = String(currentBuf[1]);
@@ -148,6 +149,8 @@ function renderBuf(buf) {
             if (thing.color && thing.size) {
                 const clickableChunk = [
                     !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
                     Math.floor(thing.pos.x * horizontalScale / 100), 
                     Math.floor(thing.pos.x * horizontalScale / 100) + Math.floor(thing.size.x * horizontalScale / 100), 
                     Math.floor(thing.pos.y * verticalScale / 100), 
@@ -384,10 +387,43 @@ function req() {
 const click = function(x, y) {
     const pixelWidth = canvas.width / window.gameWidth;
     const pixelHeight = canvas.height / window.gameHeight;
-    const clickX = Math.floor((x + window.scrollX) / pixelWidth);
-    const clickY = Math.floor((y + window.scrollY) / pixelHeight);
-    const payload = {type: "click",  data: {x: clickX, y: clickY}};
-    socketWorker.postMessage(JSON.stringify(payload));
+    const clickX = Math.floor(x / pixelWidth);
+    const clickY = Math.floor(y / pixelHeight);
+    
+    const clickInfo = canClick(x, y);
+    if (clickInfo.action) {
+        if (clickInfo.action === 'text') {
+            // mouseup doesnt fire when you call prompt
+            mouseDown = false;
+            const textInput = prompt('Input text');
+            socketWorker.postMessage(JSON.stringify({
+                type: 'input',
+                input: textInput,
+                nodeId: clickInfo.nodeId
+            }));
+        } else if (clickInfo.action === 'file') {
+            mouseDown = false;
+            const inputEl = document.getElementById('file-input');
+            inputEl.click();
+            inputEl.onchange = (e) => {
+                if (inputEl.files.length > 0) {
+                    const fileReader = new FileReader();
+                    fileReader.onload = (data) => {
+                        socketWorker.postMessage(JSON.stringify({
+                            type: 'input',
+                            // this is absolutely the wrong way to do this (????)
+                            input: new Uint8Array(fileReader.result),
+                            nodeId: clickInfo.nodeId
+                        }));
+                    };
+                    fileReader.readAsArrayBuffer(inputEl.files[0]);
+                }
+            };
+        }
+    } else {
+        const payload = {type: "click",  data: {x: clickX, y: clickY}};
+        socketWorker.postMessage(JSON.stringify(payload));
+    }
 };
 
 const keydown = function(key) {
@@ -419,30 +455,57 @@ const unlock = () => {
 
 document.addEventListener("touchstart", unlock, false);
 
-canvas.addEventListener("mousedown", function() {
+const canClick = (x, y) => {
+    let isClickable = false;
+    let action = null;
+    let nodeId = null;
+
+    for (const chunkIndex in thingIndices) {
+        const clickableIndexChunk = thingIndices[chunkIndex];
+        const intersects = (
+            x >= clickableIndexChunk[3] && 
+            x <= clickableIndexChunk[4]
+        ) && (
+            y >= clickableIndexChunk[5] && 
+            y <= clickableIndexChunk[6]) ;
+        if (intersects) {
+            isClickable = clickableIndexChunk[0];
+            action = clickableIndexChunk[1];
+            nodeId = clickableIndexChunk[2];
+        }
+    }
+
+    return {
+        isClickable,
+        action,
+        nodeId
+    }
+};
+canvas.addEventListener("mousedown", function(e) {
     mouseDown = true;
+    click(e.clientX + window.scrollX, e.clientY + window.scrollY);
+
     unlock();
 });
 
 canvas.addEventListener("mouseup", function(e) {
-    click(e.clientX, e.clientY);
     mouseDown = false;
 });
 
 canvas.addEventListener("mousemove", function(e) {
     if (mouseDown) {
-        click(e.clientX, e.clientY);
+        click(e.clientX + window.scrollX, e.clientY + window.scrollY);
     }
 });
 
 canvas.addEventListener("touchstart", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX, e.touches["0"].clientY);
+    click(e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
 });
 
 canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX, e.touches["0"].clientY);
+    click(e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
 });
 
 function keyMatters(event) {
@@ -481,22 +544,9 @@ if (isMobile()) {
 }
 
 window.addEventListener('mousemove', (e) => {
-    let isClickable = false;
+    const clickInfo = canClick(e.clientX + window.scrollX, e.clientY + window.scrollY);
 
-    for (const chunkIndex in thingIndices) {
-        const clickableIndexChunk = thingIndices[chunkIndex];
-        const intersects = (
-            e.clientX + window.scrollX >= clickableIndexChunk[1] && 
-            e.clientX + window.scrollX <= clickableIndexChunk[2]
-        ) && (
-            e.clientY + window.scrollY >= clickableIndexChunk[3] && 
-            e.clientY + window.scrollY <= clickableIndexChunk[4]) ;
-        if (intersects) {
-            isClickable = clickableIndexChunk[0];
-        }
-    }
-
-    if (isClickable) {
+    if (clickInfo.isClickable || clickInfo.action) {
         canvas.style.cursor = 'pointer';
     } else {
         canvas.style.cursor = 'initial';
