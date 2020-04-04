@@ -128,9 +128,12 @@ const storeAssets = (buf) => {
     }
 }
 
+let thingIndices = [];
+
 function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
+    thingIndices = [];
     
     while (buf && i < buf.length) {
         const frameType = buf[i];
@@ -139,14 +142,27 @@ function renderBuf(buf) {
 
         let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
-        
+
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
 
             if (thing.color && thing.size) {
-                if (thing.text && thing.text.text.indexOf('Option') > -1) {
-                    ctx.shadowColor = 'black';
-                    ctx.shadowBlur = 15;
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    Math.floor(thing.pos.x * horizontalScale / 100), 
+                    Math.floor(thing.pos.x * horizontalScale / 100) + Math.floor(thing.size.x * horizontalScale / 100), 
+                    Math.floor(thing.pos.y * verticalScale / 100), 
+                    Math.floor(thing.pos.y * verticalScale / 100) + Math.floor(thing.size.y * verticalScale / 100)
+                ];
+                thingIndices.push(clickableChunk);
+
+                if (thing.effects && thing.effects.shadow) {
+                    const shadowColor = thing.effects.shadow.color;
+                    ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                    if (thing.effects.shadow.blur) {
+                        ctx.shadowBlur = thing.effects.shadow.blur;
+                    }
                 }
+
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
                 ctx.fillRect(Math.floor(thing.pos.x * horizontalScale / 100), Math.floor(thing.pos.y * verticalScale / 100), Math.floor(thing.size.x * horizontalScale / 100), Math.floor(thing.size.y * verticalScale / 100));
                 ctx.shadowColor = null;
@@ -463,6 +479,30 @@ if (isMobile()) {
         }
     });
 }
+
+window.addEventListener('mousemove', (e) => {
+    let isClickable = false;
+
+    for (const chunkIndex in thingIndices) {
+        const clickableIndexChunk = thingIndices[chunkIndex];
+        const intersects = (
+            e.clientX + window.scrollX >= clickableIndexChunk[1] && 
+            e.clientX + window.scrollX <= clickableIndexChunk[2]
+        ) && (
+            e.clientY + window.scrollY >= clickableIndexChunk[3] && 
+            e.clientY + window.scrollY <= clickableIndexChunk[4]) ;
+        if (intersects) {
+            isClickable = clickableIndexChunk[0];
+        }
+    }
+
+    if (isClickable) {
+        canvas.style.cursor = 'pointer';
+    } else {
+        canvas.style.cursor = 'initial';
+    }
+
+});
 
 window.addEventListener('resize', () => {
     initCanvas(window.gameWidth, window.gameHeight);
