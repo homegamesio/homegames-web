@@ -6,18 +6,18 @@ let currentBuf;
 
 let rendered = false;
 
+let aspectRatio;
+
 socketWorker.onmessage = (socketMessage) => {
     currentBuf = new Uint8ClampedArray(socketMessage.data);
     if (currentBuf[0] == 2) {
         window.playerId = currentBuf[1];
-        let gameWidth1 = String(currentBuf[2]);
-        let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
+        const aspectRatioX = currentBuf[2];
+        const aspectRatioY = currentBuf[3];
+        aspectRatio = {x: aspectRatioX, y: aspectRatioY};
 
-        let gameHeight1 = String(currentBuf[4]);
-        let gameHeight2 = String(currentBuf[5]);
-        initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
+        initCanvas();
     } else if (currentBuf[0] == 1) {
-        console.log("GETTING ASSETS");
         storeAssets(currentBuf);
     } else if (currentBuf[0] === 5) {
         let a = String(currentBuf[1]);
@@ -49,8 +49,6 @@ socketWorker.postMessage({
 let gamepad;
 let moving;
 
-let horizontalScale = 1;
-let verticalScale = 1;
 let scaleFactor = 1;
 
 window.playerId = null;
@@ -66,24 +64,20 @@ const imageCache = {};
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d", {alpha: false});
 
-const DEFAULT_WIDTH = 1280;
-const DEFAULT_HEIGHT = 720;
-
-const initCanvas = (gameWidth, gameHeight) => {
-    let windowWidth = window.innerWidth;
-    window.gameWidth = gameWidth;
-    window.gameHeight = gameHeight;
+const initCanvas = () => {
+    const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
+//    let windowWidth = window.innerWidth;
+//    window.gameWidth = gameWidth;
+//    window.gameHeight = gameHeight;
     
-    scaleFactor = Math.floor(windowWidth / gameWidth) || windowWidth / gameWidth;
+//    scaleFactor = Math.floor(windowWidth / gameWidth) || windowWidth / gameWidth;
 
-    horizontalScale = gameWidth * scaleFactor;
-    verticalScale = gameHeight * scaleFactor;
+//    horizontalScale = gameWidth * scaleFactor;
+//    verticalScale = gameHeight * scaleFactor;
 
-    canvas.height = verticalScale;
-    canvas.width = horizontalScale;
+    canvas.height = canvasHeight;
+    canvas.width = window.innerWidth;
 };
-
-initCanvas(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
 const storeAssets = (buf) => {
     let i = 0;
@@ -151,10 +145,10 @@ function renderBuf(buf) {
                     !!thing.handleClick,
                     thing.input && thing.input.type,
                     thing.id,
-                    Math.floor(thing.pos.x * horizontalScale / 100), 
-                    Math.floor(thing.pos.x * horizontalScale / 100) + Math.floor(thing.size.x * horizontalScale / 100), 
-                    Math.floor(thing.pos.y * verticalScale / 100), 
-                    Math.floor(thing.pos.y * verticalScale / 100) + Math.floor(thing.size.y * verticalScale / 100)
+                    Math.floor(thing.pos.x * canvas.width/ 100), 
+                    Math.floor(thing.pos.x * canvas.width/ 100) + Math.floor(thing.size.x * canvas.width / 100), 
+                    Math.floor(thing.pos.y * canvas.height/ 100), 
+                    Math.floor(thing.pos.y * canvas.height/ 100) + Math.floor(thing.size.y * canvas.height / 100)
                 ];
                 thingIndices.push(clickableChunk);
 
@@ -167,7 +161,7 @@ function renderBuf(buf) {
                 }
 
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                ctx.fillRect(Math.floor(thing.pos.x * horizontalScale / 100), Math.floor(thing.pos.y * verticalScale / 100), Math.floor(thing.size.x * horizontalScale / 100), Math.floor(thing.size.y * verticalScale / 100));
+                ctx.fillRect(Math.floor(thing.pos.x * canvas.width / 100), Math.floor(thing.pos.y * canvas.height / 100), Math.floor(thing.size.x * canvas.width / 100), Math.floor(thing.size.y * canvas.height / 100));
                 ctx.shadowColor = null;
                 ctx.shadowBlur = 0;
             }
@@ -178,7 +172,7 @@ function renderBuf(buf) {
                 ctx.font = fontSize + "px sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
-                ctx.fillText(thing.text.text, thing.text.x * horizontalScale / 100, thing.text.y * verticalScale / 100);
+                ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
             }
 
             if (thing.asset) {
@@ -199,14 +193,16 @@ function renderBuf(buf) {
 
                     if (imageCache[assetKey]) {
                         image = imageCache[assetKey];
-                        ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
-                            (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                        image.width = asset.size.x / 100 * canvas.width;
+                        image.height = asset.size.y / 100 * canvas.height;
+                        ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                            (asset.pos.y / 100) * canvas.height, image.width, image.height);
                     } else {
-                        image = new Image(asset.size.x / 100 * horizontalScale, asset.size.y / 100 * verticalScale);
+                        image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
                         imageCache[assetKey] = image;
                         image.onload = () => {
-                            ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
-                                (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                                (asset.pos.y / 100) * canvas.height, image.width, image.height);
                         };
 
                         if (gameAssets[assetKey]) {
@@ -385,10 +381,8 @@ function req() {
 }
 
 const click = function(x, y) {
-    const pixelWidth = canvas.width / window.gameWidth;
-    const pixelHeight = canvas.height / window.gameHeight;
-    const clickX = Math.floor(x / pixelWidth);
-    const clickY = Math.floor(y / pixelHeight);
+    const clickX = x / canvas.width * 100;
+    const clickY = y / canvas.height * 100;
     
     const clickInfo = canClick(x, y);
     if (clickInfo.action) {
@@ -421,8 +415,10 @@ const click = function(x, y) {
             };
         }
     } else {
-        const payload = {type: "click",  data: {x: clickX, y: clickY}};
-        socketWorker.postMessage(JSON.stringify(payload));
+        if (clickX <= 100 && clickY <= 100) {
+            const payload = {type: "click",  data: {x: clickX, y: clickY}};
+            socketWorker.postMessage(JSON.stringify(payload));
+        }
     }
 };
 
@@ -556,4 +552,5 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('resize', () => {
     initCanvas(window.gameWidth, window.gameHeight);
+    currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 });
