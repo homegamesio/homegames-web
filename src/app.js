@@ -49,8 +49,6 @@ socketWorker.postMessage({
 let gamepad;
 let moving;
 
-let scaleFactor = 1;
-
 window.playerId = null;
 
 let mouseDown = false;
@@ -167,8 +165,10 @@ function renderBuf(buf) {
             }
 
             if (thing.text) {
-                ctx.fillStyle = "black";
-                const fontSize = thing.text.size * scaleFactor;
+                console.log("huh");
+                console.log(thing.text);
+                ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
+                const fontSize = thing.text.size;
                 ctx.font = fontSize + "px sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
