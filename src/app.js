@@ -8,6 +8,9 @@ let rendered = false;
 
 let aspectRatio;
 
+let lastClick;
+let clientWidth;
+
 socketWorker.onmessage = (socketMessage) => {
     currentBuf = new Uint8ClampedArray(socketMessage.data);
     if (currentBuf[0] == 2) {
@@ -73,8 +76,12 @@ const initCanvas = () => {
 //    horizontalScale = gameWidth * scaleFactor;
 //    verticalScale = gameHeight * scaleFactor;
 
-    canvas.height = canvasHeight;
-    canvas.width = window.innerWidth;
+    canvas.height = 2 * canvasHeight;
+    canvas.width = 2 * window.innerWidth;
+    clientWidth = .5 * canvas.width;
+    clientHeight = .5 * canvas.height;
+    canvas.style.height = `${clientHeight}px`;
+    canvas.style.width = `${clientWidth}px`;
 };
 
 const storeAssets = (buf) => {
@@ -143,10 +150,10 @@ function renderBuf(buf) {
                     !!thing.handleClick,
                     thing.input && thing.input.type,
                     thing.id,
-                    Math.floor(thing.pos.x * canvas.width/ 100), 
-                    Math.floor(thing.pos.x * canvas.width/ 100) + Math.floor(thing.size.x * canvas.width / 100), 
-                    Math.floor(thing.pos.y * canvas.height/ 100), 
-                    Math.floor(thing.pos.y * canvas.height/ 100) + Math.floor(thing.size.y * canvas.height / 100)
+                    Math.floor(thing.pos.x * clientWidth / 100), 
+                    Math.floor(thing.pos.x * clientWidth / 100) + Math.floor(thing.size.x * clientWidth / 100), 
+                    Math.floor(thing.pos.y * clientHeight / 100), 
+                    Math.floor(thing.pos.y * clientHeight / 100) + Math.floor(thing.size.y * clientHeight / 100)
                 ];
                 thingIndices.push(clickableChunk);
 
@@ -158,6 +165,7 @@ function renderBuf(buf) {
                     }
                 }
 
+                ctx.globalAlpha = thing.color[3] / 255;
                 ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
                 ctx.fillRect(Math.floor(thing.pos.x * canvas.width / 100), Math.floor(thing.pos.y * canvas.height / 100), Math.floor(thing.size.x * canvas.width / 100), Math.floor(thing.size.y * canvas.height / 100));
                 ctx.shadowColor = null;
@@ -165,8 +173,7 @@ function renderBuf(buf) {
             }
 
             if (thing.text) {
-                console.log("huh");
-                console.log(thing.text);
+                ctx.globalAlpha = thing.text.color[3] / 255;
                 ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
                 const fontSize = thing.text.size;
                 ctx.font = fontSize + "px sans-serif";
@@ -216,6 +223,8 @@ function renderBuf(buf) {
         }
 
         i += frameSize;
+
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -340,39 +349,54 @@ const getGamepadMappings = (gamepadId) => {
 
 const gamepadsPressed = {};
 
+const getActiveGamepads = (gamepads) => {
+    const activeGamepads = new Map();
+
+    for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) {
+        const gamepad = gamepads[gamepadIndex];
+        activeGamepads.set(gamepadIndex, gamepad);
+    }
+
+    return activeGamepads;
+};
+
+let lastClickTime;
+
 function req() {
     gamepads = navigator.getGamepads();
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
-    if (gamepads.length > 0) {
-        for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) { 
-            const gamepad = gamepads[gamepadIndex];
-            if (gamepad) {
-                if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
-                    gamepadsPressed[gamepadIndex] = {};
-                }
-                const inputMappings = getGamepadMappings(gamepad.id);
-                if (inputMappings) {
-                    for (let stickIndex in inputMappings.stickMappings) {
-                        inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
-                    }
+    const activeGamepads = getActiveGamepads(gamepads);
 
-                    for (let buttonIndex in inputMappings.buttonMappings) {
-                        if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                        }
-                        if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = true;
-                            inputMappings.buttonMappings[buttonIndex].press();
-                        } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                            inputMappings.buttonMappings[buttonIndex].depress();
-                        }
+    if (activeGamepads.length) {
+        activeGamepads.forEach((gamepadIndex, gamepad) => {
+            if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
+                gamepadsPressed[gamepadIndex] = {};
+            }
+            const inputMappings = getGamepadMappings(gamepad.id);
+            if (inputMappings) {
+                for (let stickIndex in inputMappings.stickMappings) {
+                    inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
+                }
+
+                for (let buttonIndex in inputMappings.buttonMappings) {
+                    if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                    }
+                    if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = true;
+                        inputMappings.buttonMappings[buttonIndex].press();
+                    } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                        inputMappings.buttonMappings[buttonIndex].depress();
                     }
                 }
             }
-        }
+        });
+    } else if (mouseDown && (!lastClickTime || Date.now() - lastClickTime > 200)) {
+        lastClickTime = Date.now();
+        click();
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
@@ -380,9 +404,15 @@ function req() {
     window.requestAnimationFrame(req);
 }
 
-const click = function(x, y) {
-    const clickX = x / canvas.width * 100;
-    const clickY = y / canvas.height * 100;
+const click = function() {
+    if (!lastClick) {
+        return;
+    }
+    const x = lastClick[0];
+    const y = lastClick[1];
+    //[e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+    const clickX = x / clientWidth * 100;
+    const clickY = y / clientHeight * 100;
     
     const clickInfo = canClick(x, y);
     if (clickInfo.action) {
@@ -477,31 +507,41 @@ const canClick = (x, y) => {
         nodeId
     }
 };
-canvas.addEventListener("mousedown", function(e) {
-    mouseDown = true;
-    click(e.clientX + window.scrollX, e.clientY + window.scrollY);
 
+window.addEventListener("mousedown", function(e) {
+    mouseDown = true;
+    lastClick = [e.clientX + window.scrollX, e.clientY + window.scrollY];
     unlock();
+    click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
 });
 
-canvas.addEventListener("mouseup", function(e) {
+window.addEventListener("mouseup", function(e) {
     mouseDown = false;
 });
 
 canvas.addEventListener("mousemove", function(e) {
     if (mouseDown) {
-        click(e.clientX + window.scrollX, e.clientY + window.scrollY);
+        lastClick = [e.clientX + window.scrollX, e.clientY + window.scrollY];
+        click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
     }
 });
 
-canvas.addEventListener("touchstart", function(e) {
+window.addEventListener("touchstart", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
+    mouseDown = true;
+    lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+    click();
 });
 
 canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
+    mouseDown = true;
+    lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+    click();//e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
+});
+
+window.addEventListener('touchend', () => {
+    mouseDown = false;
 });
 
 function keyMatters(event) {
