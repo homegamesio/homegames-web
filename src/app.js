@@ -94,11 +94,11 @@ const storeAssets = (buf) => {
             const assetType = buf[i + 1];
             // image
             if (assetType === 1) {
-                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 6));
+                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
 
-                const payloadKeyRaw = buf.slice(i + 6, i + 6 + 32);
-                const payloadData = buf.slice(i + 6 + 32, i + 6 +  payloadLength);
+                const payloadKeyRaw = buf.slice(i + 12, i + 12 + 32);
+                const payloadData = buf.slice(i + 12 + 32, i + 12 +  payloadLength);
                 const payloadKey = String.fromCharCode.apply(null, payloadKeyRaw.filter(k => k)); 
                 let imgBase64String = "";
                 for (let i = 0; i < payloadData.length; i++) {
@@ -106,23 +106,24 @@ const storeAssets = (buf) => {
                 }
                 const imgBase64 = btoa(imgBase64String);
                 gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
-                i += 6 + payloadLength;
+                i += 12 + payloadLength;
             } else {
                 // audio
-                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 6));
+                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
-                const payloadKeyRaw = buf.slice(i + 6, i + 6 + 32);
-                const payloadData = buf.slice(i + 6 + 32, i + 6 +  payloadLength);
+                const payloadKeyRaw = buf.slice(i + 12, i + 12 + 32);
+                const payloadData = buf.slice(i + 12 + 32, i + 12 +  payloadLength);
                 const payloadKey = String.fromCharCode.apply(null, payloadKeyRaw.filter(k => k)); 
                 if (!audioCtx) {
                     gameAssets[payloadKey] = {"type": "audio", "data": payloadData.buffer, "decoded": false};
                 } else {
-                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
-                        gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
-                    });
+                    console.log("THIS HAPPENS 1");
+///                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
+ //                       gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
+ //                   });
                 }
 
-                i += 6 + payloadLength;
+                i += 12 + payloadLength;
             }
         }
     }
@@ -186,7 +187,7 @@ function renderBuf(buf) {
                 const assetKey = Object.keys(thing.asset)[0];
 
                 if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                    if (audioCtx) {
+                    if (audioCtx && gameAssets[assetKey].decoded) {
                         source = audioCtx.createBufferSource();
                         source.connect(audioCtx.destination);
                         source.buffer = gameAssets[assetKey].data;
