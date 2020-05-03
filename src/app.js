@@ -1,4 +1,4 @@
-const { GameNode, squish, unsquish, Colors } = require('squishjs');
+const { squish, unsquish, Colors } = require('squishjs');
 
 const socketWorker = new Worker('socket.js');
 
@@ -18,7 +18,6 @@ socketWorker.onmessage = (socketMessage) => {
         const aspectRatioX = currentBuf[2];
         const aspectRatioY = currentBuf[3];
         aspectRatio = {x: aspectRatioX, y: aspectRatioY};
-
         initCanvas();
     } else if (currentBuf[0] == 1) {
         storeAssets(currentBuf);
@@ -63,21 +62,30 @@ const gameAssets = {};
 const imageCache = {};
 
 const canvas = document.getElementById("game");
+const gameDiv = document.getElementById('homegames-main');
+gameDiv.style.background = `rgba(${Colors.HG_YELLOW[0]}, ${Colors.HG_YELLOW[1]}, ${Colors.HG_YELLOW[2]}, ${Colors.HG_YELLOW[3]})`; 
+
 const ctx = canvas.getContext("2d", {alpha: false});
 
 const initCanvas = () => {
-    const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
-//    let windowWidth = window.innerWidth;
-//    window.gameWidth = gameWidth;
-//    window.gameHeight = gameHeight;
+    // fit canvas to height
     
-//    scaleFactor = Math.floor(windowWidth / gameWidth) || windowWidth / gameWidth;
 
-//    horizontalScale = gameWidth * scaleFactor;
-//    verticalScale = gameHeight * scaleFactor;
+    // height / width == 3 / 4
+    // innerhieght / x == 3 / 4
+    // x = innerheight / (3 / 4)
+    const height = window.innerHeight;
+    const canvasWidth = Math.floor(height / (aspectRatio.y / aspectRatio.x));
+    const canvasHeight = height;
+    //const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
+
+    //console.log("GONNA SET TO");
+    //console.log(canvasHeight);
+    //console.log('window width');
+    //console.log(window.innerWidth);
 
     canvas.height = 2 * canvasHeight;
-    canvas.width = 2 * window.innerWidth;
+    canvas.width = 2 * canvasWidth;
     clientWidth = .5 * canvas.width;
     clientHeight = .5 * canvas.height;
     canvas.style.height = `${clientHeight}px`;
@@ -117,7 +125,6 @@ const storeAssets = (buf) => {
                 if (!audioCtx) {
                     gameAssets[payloadKey] = {"type": "audio", "data": payloadData.buffer, "decoded": false};
                 } else {
-                    console.log("THIS HAPPENS 1");
 ///                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
  //                       gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
  //                   });
@@ -145,16 +152,12 @@ function renderBuf(buf) {
         let thing = unsquish(buf.slice(i, i + frameSize));
 
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
-
-            if (thing.color && thing.size) {
+            if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
                 const clickableChunk = [
                     !!thing.handleClick,
                     thing.input && thing.input.type,
                     thing.id,
-                    Math.floor(thing.pos.x * clientWidth / 100), 
-                    Math.floor(thing.pos.x * clientWidth / 100) + Math.floor(thing.size.x * clientWidth / 100), 
-                    Math.floor(thing.pos.y * clientHeight / 100), 
-                    Math.floor(thing.pos.y * clientHeight / 100) + Math.floor(thing.size.y * clientHeight / 100)
+                    thing.coordinates2d
                 ];
                 thingIndices.push(clickableChunk);
 
@@ -166,11 +169,37 @@ function renderBuf(buf) {
                     }
                 }
 
-                ctx.globalAlpha = thing.color[3] / 255;
-                ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                ctx.fillRect(Math.floor(thing.pos.x * canvas.width / 100), Math.floor(thing.pos.y * canvas.height / 100), Math.floor(thing.size.x * canvas.width / 100), Math.floor(thing.size.y * canvas.height / 100));
+                if (thing.color) {
+                    ctx.globalAlpha = thing.color[3] / 255;
+                }
+                if (thing.fill !== null && thing.fill !== undefined) {
+                    ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
+                }
+                if (thing.border !== undefined && thing.border !== null) {
+                    ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
+                    ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
+                } 
+
+                if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
+                    ctx.beginPath();
+                    
+                    ctx.moveTo(thing.coordinates2d[0][0] * canvas.width / 100, thing.coordinates2d[0][1] * canvas.height / 100);
+                    for (let i = 1; i < thing.coordinates2d.length; i++) {
+                        ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i][0], thing.coordinates2d[i][1] * canvas.height / 100);
+                    }
+    
+                    if (thing.fill !== undefined && thing.fill !== null) {
+                        ctx.fill();
+                    }
+    
+                    if (thing.border !== undefined && thing.border !== null) {
+                        ctx.stroke();
+                    }
+                }
                 ctx.shadowColor = null;
                 ctx.shadowBlur = 0;
+                ctx.lineWidth = 0;
+                ctx.strokeStyle = null;
             }
 
             if (thing.text) {
@@ -412,7 +441,7 @@ const click = function() {
     const x = lastClick[0];
     const y = lastClick[1];
     //[e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
-    const clickX = x / clientWidth * 100;
+    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
     const clickY = y / clientHeight * 100;
     
     const clickInfo = canClick(x, y);
@@ -487,19 +516,57 @@ const canClick = (x, y) => {
     let action = null;
     let nodeId = null;
 
+    if (x < canvas.offsetLeft - window.scrollLeft) {
+        return false;
+    }
+
     for (const chunkIndex in thingIndices) {
         const clickableIndexChunk = thingIndices[chunkIndex];
-        const intersects = (
-            x >= clickableIndexChunk[3] && 
-            x <= clickableIndexChunk[4]
-        ) && (
-            y >= clickableIndexChunk[5] && 
-            y <= clickableIndexChunk[6]) ;
-        if (intersects) {
+
+        const vertices = clickableIndexChunk[3];
+        let isInside = false;
+
+        let minX = translateX(vertices[0][0]);
+        let maxX = translateX(vertices[0][0]);
+        let minY = translateY(vertices[0][1]);
+        let maxY = translateY(vertices[0][1]);
+        for (let i = 1; i < vertices.length; i++) {
+            const vert = vertices[i];
+            minX = Math.min(translateX(vert[0]), minX);
+            maxX = Math.max(translateX(vert[0]), maxX);
+            minY = Math.min(translateY(vert[1]), minY);
+            maxY = Math.max(translateY(vert[1]), maxY);
+        }
+
+        if (!(x < minX || x > maxX || y < minY || y > maxY)) {
+            let i = 0;
+            let j = vertices.length - 1;
+            for (i, j; i < vertices.length; j=i++) {
+                if ((translateY(vertices[i][1]) > y) != (translateY(vertices[j][1]) > y) &&
+                        x < (translateX(vertices[j][0]) - translateX(vertices[i][0])) * (y - translateY(vertices[i][1])) / (translateY(vertices[j][1]) - translateY(vertices[i][1])) + translateX(vertices[i][0])) {
+                        isInside = !isInside;
+                }
+            }
+        }
+ 
+        if (isInside) {
             isClickable = clickableIndexChunk[0];
             action = clickableIndexChunk[1];
             nodeId = clickableIndexChunk[2];
         }
+
+
+//        const intersects = (
+//            x >= clickableIndexChunk[3] && 
+//            x <= clickableIndexChunk[4]
+//        ) && (
+//            y >= clickableIndexChunk[5] && 
+//            y <= clickableIndexChunk[6]) ;
+//        if (intersects) {
+//            isClickable = clickableIndexChunk[0];
+//            action = clickableIndexChunk[1];
+//            nodeId = clickableIndexChunk[2];
+//        }
     }
 
     return {
@@ -509,9 +576,18 @@ const canClick = (x, y) => {
     }
 };
 
+const translateX = (x) => {
+    const translated = (x * clientWidth / 100) + canvas.offsetLeft + window.scrollX;
+    return translated;
+};
+const translateY = (y) => {
+    return (y * clientHeight / 100) + canvas.offsetTop + window.scrollY;
+};
+
 window.addEventListener("mousedown", function(e) {
     mouseDown = true;
-    lastClick = [e.clientX + window.scrollX, e.clientY + window.scrollY];
+    lastClickTime = Date.now();
+    lastClick = [e.clientX, e.clientY];
     unlock();
     click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
 });
@@ -522,6 +598,7 @@ window.addEventListener("mouseup", function(e) {
 
 canvas.addEventListener("mousemove", function(e) {
     if (mouseDown) {
+        lastClickTime = Date.now();
         lastClick = [e.clientX + window.scrollX, e.clientY + window.scrollY];
         click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
     }
@@ -530,6 +607,7 @@ canvas.addEventListener("mousemove", function(e) {
 window.addEventListener("touchstart", function(e) {
     e.preventDefault();
     mouseDown = true;
+    lastClickTime = Date.now();
     lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
     click();
 });
@@ -537,6 +615,7 @@ window.addEventListener("touchstart", function(e) {
 canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
     mouseDown = true;
+    lastClickTime = Date.now();
     lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
     click();//e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
 });
@@ -581,7 +660,9 @@ if (isMobile()) {
 }
 
 window.addEventListener('mousemove', (e) => {
-    const clickInfo = canClick(e.clientX + window.scrollX, e.clientY + window.scrollY);
+    //console.log(`translated ${x} to ${translated}`);
+    //console.log(`can click ${e.clientX}, ${e.clientY}`);
+    const clickInfo = canClick(e.clientX, e.clientY);
 
     if (clickInfo.isClickable || clickInfo.action) {
         canvas.style.cursor = 'pointer';
