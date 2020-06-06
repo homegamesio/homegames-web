@@ -153,6 +153,10 @@ function renderBuf(buf) {
 
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
             if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
+                if (thing.handleClick) {
+                    //console.log("HANDLE CLICK");
+                    //console.log(thing);
+                }
                 const clickableChunk = [
                     !!thing.handleClick,
                     thing.input && thing.input.type,
@@ -183,9 +187,9 @@ function renderBuf(buf) {
                 if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
                     ctx.beginPath();
                     
-                    ctx.moveTo(thing.coordinates2d[0][0] * canvas.width / 100, thing.coordinates2d[0][1] * canvas.height / 100);
-                    for (let i = 1; i < thing.coordinates2d.length; i++) {
-                        ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i][0], thing.coordinates2d[i][1] * canvas.height / 100);
+                    ctx.moveTo(thing.coordinates2d[0] * canvas.width / 100, thing.coordinates2d[1] * canvas.height / 100);
+                    for (let i = 2; i < thing.coordinates2d.length; i+=2) {
+                        ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i], thing.coordinates2d[i+1] * canvas.height / 100);
                     }
     
                     if (thing.fill !== undefined && thing.fill !== null) {
@@ -523,7 +527,15 @@ const canClick = (x, y) => {
     for (const chunkIndex in thingIndices) {
         const clickableIndexChunk = thingIndices[chunkIndex];
 
-        const vertices = clickableIndexChunk[3];
+        let vertices = clickableIndexChunk[3];
+        // TODO: fix this hack
+        if (!vertices[0].length) {
+            let verticesSwp = new Array(vertices.length / 2);
+            for (let i = 0; i < vertices.length; i+=2) {
+                verticesSwp[i/2] = [vertices[i], vertices[i+1]];
+            }
+            vertices = verticesSwp;
+        }
         let isInside = false;
 
         let minX = translateX(vertices[0][0]);
