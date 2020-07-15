@@ -4,39 +4,45 @@ const socketWorker = new Worker('socket.js');
 
 let currentBuf;
 
-let rendered = false;
+let rendering = false;
 
 let aspectRatio;
 
-let lastClick;
+let mousePos;
 let clientWidth;
 
 socketWorker.onmessage = (socketMessage) => {
-    currentBuf = new Uint8ClampedArray(socketMessage.data);
-    if (currentBuf[0] == 2) {
-        window.playerId = currentBuf[1];
-        const aspectRatioX = currentBuf[2];
-        const aspectRatioY = currentBuf[3];
-        aspectRatio = {x: aspectRatioX, y: aspectRatioY};
-        initCanvas();
-    } else if (currentBuf[0] == 1) {
-        storeAssets(currentBuf);
-    } else if (currentBuf[0] === 5) {
-        let a = String(currentBuf[1]);
-        let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-        let newPort = a + b;
+    if (socketMessage.data.constructor === Object) {
+        if (socketMessage.data.type === 'SOCKET_CLOSE') {
+            rendering = false;
+        }
+    } else {
+        currentBuf = new Uint8ClampedArray(socketMessage.data);
+        if (currentBuf[0] == 2) {
+            window.playerId = currentBuf[1];
+            const aspectRatioX = currentBuf[2];
+            const aspectRatioY = currentBuf[3];
+            aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+            initCanvas();
+        } else if (currentBuf[0] == 1) {
+            storeAssets(currentBuf);
+        } else if (currentBuf[0] === 5) {
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
 
-        socketWorker.postMessage({
-            socketInfo: {
-                hostname: window.location.hostname,
-                playerId: window.playerId || null,
-                port: Number(newPort)
-            }
-        });
+            socketWorker.postMessage({
+                socketInfo: {
+                    hostname: window.location.hostname,
+                    playerId: window.playerId || null,
+                    port: Number(newPort)
+                }
+            });
 
-    } else if (currentBuf[0] == 3 && !rendered) {
-        rendered = true;
-        req();
+        } else if (currentBuf[0] == 3 && !rendering) {
+            rendering = true;
+            req();
+        }
     }
 };
 
@@ -63,7 +69,8 @@ const imageCache = {};
 
 const canvas = document.getElementById("game");
 const gameDiv = document.getElementById('homegames-main');
-gameDiv.style.background = `rgba(${Colors.HG_YELLOW[0]}, ${Colors.HG_YELLOW[1]}, ${Colors.HG_YELLOW[2]}, ${Colors.HG_YELLOW[3]})`; 
+const divColor = Colors.HG_YELLOW;//BLACK;
+gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]}, ${divColor[3]})`; 
 
 const ctx = canvas.getContext("2d", {alpha: false});
 
@@ -78,11 +85,6 @@ const initCanvas = () => {
     const canvasWidth = Math.floor(height / (aspectRatio.y / aspectRatio.x));
     const canvasHeight = height;
     //const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
-
-    //console.log("GONNA SET TO");
-    //console.log(canvasHeight);
-    //console.log('window width');
-    //console.log(window.innerWidth);
 
     canvas.height = 2 * canvasHeight;
     canvas.width = 2 * canvasWidth;
@@ -152,11 +154,31 @@ function renderBuf(buf) {
         let thing = unsquish(buf.slice(i, i + frameSize));
 
         if (thing.playerId === 0 || thing.playerId === window.playerId) {
-            if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
-                if (thing.handleClick) {
-                    //console.log("HANDLE CLICK");
-                    //console.log(thing);
+            if (!thing.coordinates2d && thing.input && thing.text) {
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
+                ctx.font = fontSize + "px sans-serif";
+ 
+                const textInfo = ctx.measureText(thing.text.text);
+                let textStartX = thing.text.x * canvas.width / 100;
+                
+                if (thing.text.align && thing.text.align == 'center') {
+                    textStartX -= textInfo.width / 2;
                 }
+
+                textStartX = textStartX / canvas.width * 100;
+                const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
+                const textWidthPercent = textInfo.width / canvas.width * 100;
+                const textHeightPercent = textHeight / canvas.height * 100;
+
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
+                    [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
+                ];
+                thingIndices.push(clickableChunk);
+            } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
                 const clickableChunk = [
                     !!thing.handleClick,
                     thing.input && thing.input.type,
@@ -209,9 +231,12 @@ function renderBuf(buf) {
             if (thing.text) {
                 ctx.globalAlpha = thing.text.color[3] / 255;
                 ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
-                const fontSize = thing.text.size;
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
                 ctx.font = fontSize + "px sans-serif";
-                ctx.textAlign = "center";
+                if (thing.text.align) {
+                    ctx.textAlign = thing.text.align;
+                }
                 ctx.textBaseline = "top";
                 ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
             }
@@ -394,9 +419,13 @@ const getActiveGamepads = (gamepads) => {
     return activeGamepads;
 };
 
-let lastClickTime;
+let clickStopper;
 
 function req() {
+    if (!rendering) {
+        return;
+    }
+
     gamepads = navigator.getGamepads();
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
@@ -428,9 +457,24 @@ function req() {
                 }
             }
         });
-    } else if (mouseDown && (!lastClickTime || Date.now() - lastClickTime > 200)) {
-        lastClickTime = Date.now();
-        click();
+    } 
+
+    if (mousePos) {
+        const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+
+        if (mouseDown && !clickStopper) {
+            click(clickInfo);
+            clickStopper = setTimeout(() => {
+                clickStopper = null;
+            }, 10);
+        }
+
+
+        if (clickInfo.isClickable || clickInfo.action) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = 'initial';
+        }
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
@@ -438,17 +482,15 @@ function req() {
     window.requestAnimationFrame(req);
 }
 
-const click = function() {
-    if (!lastClick) {
+const click = function(clickInfo = {}) {
+    if (!mousePos) {
         return;
     }
-    const x = lastClick[0];
-    const y = lastClick[1];
-    //[e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+    const x = mousePos[0];
+    const y = mousePos[1];
     const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
     const clickY = y / clientHeight * 100;
     
-    const clickInfo = canClick(x, y);
     if (clickInfo.action) {
         if (clickInfo.action === 'text') {
             // mouseup doesnt fire when you call prompt
@@ -542,6 +584,19 @@ const canClick = (x, y) => {
         let maxX = translateX(vertices[0][0]);
         let minY = translateY(vertices[0][1]);
         let maxY = translateY(vertices[0][1]);
+
+        if (vertices.length == 5 && false) {
+
+            const startX = vertices[0][0];// * canvas.width / 100;
+            const startY = vertices[0][1];// * canvas.height / 100;
+            ctx.fillStyle = 'rgba(255,0,0,255)';
+            ctx.fillRect(500, 500, 500, 500);
+//            ctx.fillRect(translateX(startX), translateY(startY), 1000, 1000);
+//            ctx.fillRect(textStartX * canvas.width / 100, thing.text.y * canvas.height / 100, textWidthPercent * canvas.width, textHeightPercent * canvas.height);
+
+
+        }
+
         for (let i = 1; i < vertices.length; i++) {
             const vert = vertices[i];
             minX = Math.min(translateX(vert[0]), minX);
@@ -598,10 +653,10 @@ const translateY = (y) => {
 
 window.addEventListener("mousedown", function(e) {
     mouseDown = true;
-    lastClickTime = Date.now();
-    lastClick = [e.clientX, e.clientY];
+    mousePos = [e.clientX, e.clientY];
     unlock();
-    click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
+    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+    click(clickInfo);//e.clientX + window.scrollX, e.clientY + window.scrollY);
 });
 
 window.addEventListener("mouseup", function(e) {
@@ -609,27 +664,20 @@ window.addEventListener("mouseup", function(e) {
 });
 
 canvas.addEventListener("mousemove", function(e) {
-    if (mouseDown) {
-        lastClickTime = Date.now();
-        lastClick = [e.clientX + window.scrollX, e.clientY + window.scrollY];
-        click();//e.clientX + window.scrollX, e.clientY + window.scrollY);
-    }
 });
 
 window.addEventListener("touchstart", function(e) {
     e.preventDefault();
     mouseDown = true;
-    lastClickTime = Date.now();
-    lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
-    click();
+    mousePos = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+    click(clickInfo);
 });
 
 canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
     mouseDown = true;
-    lastClickTime = Date.now();
-    lastClick = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
-    click();//e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY);
+    mousePos = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
 });
 
 window.addEventListener('touchend', () => {
@@ -672,16 +720,7 @@ if (isMobile()) {
 }
 
 window.addEventListener('mousemove', (e) => {
-    //console.log(`translated ${x} to ${translated}`);
-    //console.log(`can click ${e.clientX}, ${e.clientY}`);
-    const clickInfo = canClick(e.clientX, e.clientY);
-
-    if (clickInfo.isClickable || clickInfo.action) {
-        canvas.style.cursor = 'pointer';
-    } else {
-        canvas.style.cursor = 'initial';
-    }
-
+    mousePos = [e.clientX + window.scrollX, e.clientY + window.scrollY];
 });
 
 window.addEventListener('resize', () => {
