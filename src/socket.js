@@ -17,6 +17,9 @@ const initSocket = (hostname, port, playerId) => {
     };
 
     socket.onclose = () => {
+        postMessage({
+            type: 'SOCKET_CLOSE'
+        });
     };
 
     socket.onmessage = function(msg) {
