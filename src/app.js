@@ -1,4 +1,5 @@
-const { squish, unsquish, Colors } = require('squishjs');
+let { squish, unsquish, Colors } = require('squishjs');
+Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
 
@@ -466,7 +467,7 @@ function req() {
             click(clickInfo);
             clickStopper = setTimeout(() => {
                 clickStopper = null;
-            }, 10);
+            }, 30);
         }
 
 
@@ -475,6 +476,8 @@ function req() {
         } else {
             canvas.style.cursor = 'initial';
         }
+
+        mousePos = null;
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
@@ -655,8 +658,8 @@ window.addEventListener("mousedown", function(e) {
     mouseDown = true;
     mousePos = [e.clientX, e.clientY];
     unlock();
-    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
-    click(clickInfo);//e.clientX + window.scrollX, e.clientY + window.scrollY);
+//    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+//    click(clickInfo);//e.clientX + window.scrollX, e.clientY + window.scrollY);
 });
 
 window.addEventListener("mouseup", function(e) {
@@ -670,8 +673,8 @@ window.addEventListener("touchstart", function(e) {
     e.preventDefault();
     mouseDown = true;
     mousePos = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
-    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
-    click(clickInfo);
+//    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+//    click(clickInfo);
 });
 
 canvas.addEventListener("touchmove", function(e) {
