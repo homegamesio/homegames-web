@@ -70,7 +70,7 @@ const imageCache = {};
 
 const canvas = document.getElementById("game");
 const gameDiv = document.getElementById('homegames-main');
-const divColor = Colors.HG_YELLOW;//BLACK;
+const divColor = Colors.BLACK;
 gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]}, ${divColor[3]})`; 
 
 const ctx = canvas.getContext("2d", {alpha: false});
