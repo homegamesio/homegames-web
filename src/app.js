@@ -1,39 +1,49 @@
-const { GameNode, squish, unsquish, Colors } = require('squishjs');
+let { squish, unsquish, Colors } = require('squishjs');
+Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
 
 let currentBuf;
 
-let rendered = false;
+let rendering = false;
+
+let aspectRatio;
+
+let mousePos;
+let clientWidth;
 
 socketWorker.onmessage = (socketMessage) => {
-    currentBuf = new Uint8ClampedArray(socketMessage.data);
-    if (currentBuf[0] == 2) {
-        window.playerId = currentBuf[1];
-        let gameWidth1 = String(currentBuf[2]);
-        let gameWidth2 = String(currentBuf[3]).length > 1 ? currentBuf[3] : "0" + currentBuf[3];
+    if (socketMessage.data.constructor === Object) {
+        if (socketMessage.data.type === 'SOCKET_CLOSE') {
+            rendering = false;
+        }
+    } else {
+        currentBuf = new Uint8ClampedArray(socketMessage.data);
+        if (currentBuf[0] == 2) {
+            window.playerId = currentBuf[1];
+            const aspectRatioX = currentBuf[2];
+            const aspectRatioY = currentBuf[3];
+            aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+            initCanvas();
+        } else if (currentBuf[0] == 1) {
+            storeAssets(currentBuf);
+        } else if (currentBuf[0] === 5) {
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
 
-        let gameHeight1 = String(currentBuf[4]);
-        let gameHeight2 = String(currentBuf[5]);
-        initCanvas(Number(gameWidth1 + gameWidth2), Number(gameHeight1 + gameHeight2));
-    } else if (currentBuf[0] == 1) {
-        storeAssets(currentBuf);
-    } else if (currentBuf[0] === 5) {
-        let a = String(currentBuf[1]);
-        let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-        let newPort = a + b;
+            socketWorker.postMessage({
+                socketInfo: {
+                    hostname: window.location.hostname,
+                    playerId: window.playerId || null,
+                    port: Number(newPort)
+                }
+            });
 
-        socketWorker.postMessage({
-            socketInfo: {
-                hostname: window.location.hostname,
-                playerId: window.playerId || null,
-                port: Number(newPort)
-            }
-        });
-
-    } else if (currentBuf[0] == 3 && !rendered) {
-        rendered = true;
-        req();
+        } else if (currentBuf[0] == 3 && !rendering) {
+            rendering = true;
+            req();
+        }
     }
 };
 
@@ -48,10 +58,6 @@ socketWorker.postMessage({
 let gamepad;
 let moving;
 
-let horizontalScale = 1;
-let verticalScale = 1;
-let scaleFactor = 1;
-
 window.playerId = null;
 
 let mouseDown = false;
@@ -63,26 +69,31 @@ const gameAssets = {};
 const imageCache = {};
 
 const canvas = document.getElementById("game");
+const gameDiv = document.getElementById('homegames-main');
+const divColor = Colors.BLACK;
+gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]}, ${divColor[3]})`; 
+
 const ctx = canvas.getContext("2d", {alpha: false});
 
-const DEFAULT_WIDTH = 1280;
-const DEFAULT_HEIGHT = 720;
-
-const initCanvas = (gameWidth, gameHeight) => {
-    let windowWidth = window.innerWidth;
-    window.gameWidth = gameWidth;
-    window.gameHeight = gameHeight;
+const initCanvas = () => {
+    // fit canvas to height
     
-    scaleFactor = Math.floor(windowWidth / gameWidth) || windowWidth / gameWidth;
 
-    horizontalScale = gameWidth * scaleFactor;
-    verticalScale = gameHeight * scaleFactor;
+    // height / width == 3 / 4
+    // innerhieght / x == 3 / 4
+    // x = innerheight / (3 / 4)
+    const height = window.innerHeight;
+    const canvasWidth = Math.floor(height / (aspectRatio.y / aspectRatio.x));
+    const canvasHeight = height;
+    //const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
 
-    canvas.height = verticalScale;
-    canvas.width = horizontalScale;
+    canvas.height = 2 * canvasHeight;
+    canvas.width = 2 * canvasWidth;
+    clientWidth = .5 * canvas.width;
+    clientHeight = .5 * canvas.height;
+    canvas.style.height = `${clientHeight}px`;
+    canvas.style.width = `${clientWidth}px`;
 };
-
-initCanvas(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
 const storeAssets = (buf) => {
     let i = 0;
@@ -94,11 +105,11 @@ const storeAssets = (buf) => {
             const assetType = buf[i + 1];
             // image
             if (assetType === 1) {
-                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 6));
+                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
 
-                const payloadKeyRaw = buf.slice(i + 6, i + 6 + 32);
-                const payloadData = buf.slice(i + 6 + 32, i + 6 +  payloadLength);
+                const payloadKeyRaw = buf.slice(i + 12, i + 12 + 32);
+                const payloadData = buf.slice(i + 12 + 32, i + 12 +  payloadLength);
                 const payloadKey = String.fromCharCode.apply(null, payloadKeyRaw.filter(k => k)); 
                 let imgBase64String = "";
                 for (let i = 0; i < payloadData.length; i++) {
@@ -106,31 +117,34 @@ const storeAssets = (buf) => {
                 }
                 const imgBase64 = btoa(imgBase64String);
                 gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
-                i += 6 + payloadLength;
+                i += 12 + payloadLength;
             } else {
                 // audio
-                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 6));
+                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
-                const payloadKeyRaw = buf.slice(i + 6, i + 6 + 32);
-                const payloadData = buf.slice(i + 6 + 32, i + 6 +  payloadLength);
+                const payloadKeyRaw = buf.slice(i + 12, i + 12 + 32);
+                const payloadData = buf.slice(i + 12 + 32, i + 12 +  payloadLength);
                 const payloadKey = String.fromCharCode.apply(null, payloadKeyRaw.filter(k => k)); 
                 if (!audioCtx) {
                     gameAssets[payloadKey] = {"type": "audio", "data": payloadData.buffer, "decoded": false};
                 } else {
-                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
-                        gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
-                    });
+///                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
+ //                       gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
+ //                   });
                 }
 
-                i += 6 + payloadLength;
+                i += 12 + payloadLength;
             }
         }
     }
 }
 
+let thingIndices = [];
+
 function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
+    thingIndices = [];
     
     while (buf && i < buf.length) {
         const frameType = buf[i];
@@ -139,28 +153,100 @@ function renderBuf(buf) {
 
         let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
-        
-        if (thing.playerId === 0 || thing.playerId === window.playerId) {
 
-            if (thing.color && thing.size) {
-                ctx.fillStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                ctx.fillRect(Math.floor(thing.pos.x * horizontalScale / 100), Math.floor(thing.pos.y * verticalScale / 100), Math.floor(thing.size.x * horizontalScale / 100), Math.floor(thing.size.y * verticalScale / 100));
+        if (thing.playerId === 0 || thing.playerId === window.playerId) {
+            if (!thing.coordinates2d && thing.input && thing.text) {
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
+                ctx.font = fontSize + "px sans-serif";
+ 
+                const textInfo = ctx.measureText(thing.text.text);
+                let textStartX = thing.text.x * canvas.width / 100;
+                
+                if (thing.text.align && thing.text.align == 'center') {
+                    textStartX -= textInfo.width / 2;
+                }
+
+                textStartX = textStartX / canvas.width * 100;
+                const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
+                const textWidthPercent = textInfo.width / canvas.width * 100;
+                const textHeightPercent = textHeight / canvas.height * 100;
+
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
+                    [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
+                ];
+                thingIndices.push(clickableChunk);
+            } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
+                    thing.coordinates2d
+                ];
+                thingIndices.push(clickableChunk);
+
+                if (thing.effects && thing.effects.shadow) {
+                    const shadowColor = thing.effects.shadow.color;
+                    ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                    if (thing.effects.shadow.blur) {
+                        ctx.shadowBlur = thing.effects.shadow.blur;
+                    }
+                }
+
+                if (thing.color) {
+                    ctx.globalAlpha = thing.color[3] / 255;
+                }
+                if (thing.fill !== null && thing.fill !== undefined) {
+                    ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
+                }
+                if (thing.border !== undefined && thing.border !== null) {
+                    ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
+                    ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
+                } 
+
+                if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
+                    ctx.beginPath();
+                    
+                    ctx.moveTo(thing.coordinates2d[0] * canvas.width / 100, thing.coordinates2d[1] * canvas.height / 100);
+                    for (let i = 2; i < thing.coordinates2d.length; i+=2) {
+                        ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i], thing.coordinates2d[i+1] * canvas.height / 100);
+                    }
+    
+                    if (thing.fill !== undefined && thing.fill !== null) {
+                        ctx.fill();
+                    }
+    
+                    if (thing.border !== undefined && thing.border !== null) {
+                        ctx.stroke();
+                    }
+                }
+                ctx.shadowColor = null;
+                ctx.shadowBlur = 0;
+                ctx.lineWidth = 0;
+                ctx.strokeStyle = null;
             }
 
             if (thing.text) {
-                ctx.fillStyle = "black";
-                const fontSize = thing.text.size * scaleFactor;
+                ctx.globalAlpha = thing.text.color[3] / 255;
+                ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
                 ctx.font = fontSize + "px sans-serif";
-                ctx.textAlign = "center";
+                if (thing.text.align) {
+                    ctx.textAlign = thing.text.align;
+                }
                 ctx.textBaseline = "top";
-                ctx.fillText(thing.text.text, thing.text.x * horizontalScale / 100, thing.text.y * verticalScale / 100);
+                ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
             }
 
             if (thing.asset) {
                 const assetKey = Object.keys(thing.asset)[0];
 
                 if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                    if (audioCtx) {
+                    if (audioCtx && gameAssets[assetKey].decoded) {
                         source = audioCtx.createBufferSource();
                         source.connect(audioCtx.destination);
                         source.buffer = gameAssets[assetKey].data;
@@ -174,14 +260,16 @@ function renderBuf(buf) {
 
                     if (imageCache[assetKey]) {
                         image = imageCache[assetKey];
-                        ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
-                            (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                        image.width = asset.size.x / 100 * canvas.width;
+                        image.height = asset.size.y / 100 * canvas.height;
+                        ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                            (asset.pos.y / 100) * canvas.height, image.width, image.height);
                     } else {
-                        image = new Image(asset.size.x / 100 * horizontalScale, asset.size.y / 100 * verticalScale);
+                        image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
                         imageCache[assetKey] = image;
                         image.onload = () => {
-                            ctx.drawImage(image, (asset.pos.x / 100) * horizontalScale, 
-                                (asset.pos.y / 100) * verticalScale, image.width, image.height);
+                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                                (asset.pos.y / 100) * canvas.height, image.width, image.height);
                         };
 
                         if (gameAssets[assetKey]) {
@@ -195,6 +283,8 @@ function renderBuf(buf) {
         }
 
         i += frameSize;
+
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -319,39 +409,75 @@ const getGamepadMappings = (gamepadId) => {
 
 const gamepadsPressed = {};
 
+const getActiveGamepads = (gamepads) => {
+    const activeGamepads = new Map();
+
+    for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) {
+        const gamepad = gamepads[gamepadIndex];
+        activeGamepads.set(gamepadIndex, gamepad);
+    }
+
+    return activeGamepads;
+};
+
+let clickStopper;
+
 function req() {
+    if (!rendering) {
+        return;
+    }
+
     gamepads = navigator.getGamepads();
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
-    if (gamepads.length > 0) {
-        for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) { 
-            const gamepad = gamepads[gamepadIndex];
-            if (gamepad) {
-                if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
-                    gamepadsPressed[gamepadIndex] = {};
-                }
-                const inputMappings = getGamepadMappings(gamepad.id);
-                if (inputMappings) {
-                    for (let stickIndex in inputMappings.stickMappings) {
-                        inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
-                    }
+    const activeGamepads = getActiveGamepads(gamepads);
 
-                    for (let buttonIndex in inputMappings.buttonMappings) {
-                        if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                        }
-                        if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = true;
-                            inputMappings.buttonMappings[buttonIndex].press();
-                        } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
-                            gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                            inputMappings.buttonMappings[buttonIndex].depress();
-                        }
+    if (activeGamepads.length) {
+        activeGamepads.forEach((gamepadIndex, gamepad) => {
+            if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
+                gamepadsPressed[gamepadIndex] = {};
+            }
+            const inputMappings = getGamepadMappings(gamepad.id);
+            if (inputMappings) {
+                for (let stickIndex in inputMappings.stickMappings) {
+                    inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
+                }
+
+                for (let buttonIndex in inputMappings.buttonMappings) {
+                    if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                    }
+                    if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = true;
+                        inputMappings.buttonMappings[buttonIndex].press();
+                    } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
+                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
+                        inputMappings.buttonMappings[buttonIndex].depress();
                     }
                 }
             }
+        });
+    } 
+
+    if (mousePos) {
+        const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+
+        if (mouseDown && !clickStopper) {
+            click(clickInfo);
+            clickStopper = setTimeout(() => {
+                clickStopper = null;
+            }, 30);
         }
+
+
+        if (clickInfo.isClickable || clickInfo.action) {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = 'initial';
+        }
+
+        mousePos = null;
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
@@ -359,13 +485,50 @@ function req() {
     window.requestAnimationFrame(req);
 }
 
-const click = function(x, y) {
-    const pixelWidth = canvas.width / window.gameWidth;
-    const pixelHeight = canvas.height / window.gameHeight;
-    const clickX = Math.floor((x + window.scrollX) / pixelWidth);
-    const clickY = Math.floor((y + window.scrollY) / pixelHeight);
-    const payload = {type: "click",  data: {x: clickX, y: clickY}};
-    socketWorker.postMessage(JSON.stringify(payload));
+const click = function(clickInfo = {}) {
+    if (!mousePos) {
+        return;
+    }
+    const x = mousePos[0];
+    const y = mousePos[1];
+    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
+    const clickY = y / clientHeight * 100;
+    
+    if (clickInfo.action) {
+        if (clickInfo.action === 'text') {
+            // mouseup doesnt fire when you call prompt
+            mouseDown = false;
+            const textInput = prompt('Input text');
+            socketWorker.postMessage(JSON.stringify({
+                type: 'input',
+                input: textInput,
+                nodeId: clickInfo.nodeId
+            }));
+        } else if (clickInfo.action === 'file') {
+            mouseDown = false;
+            const inputEl = document.getElementById('file-input');
+            inputEl.click();
+            inputEl.onchange = (e) => {
+                if (inputEl.files.length > 0) {
+                    const fileReader = new FileReader();
+                    fileReader.onload = (data) => {
+                        socketWorker.postMessage(JSON.stringify({
+                            type: 'input',
+                            // this is absolutely the wrong way to do this (????)
+                            input: new Uint8Array(fileReader.result),
+                            nodeId: clickInfo.nodeId
+                        }));
+                    };
+                    fileReader.readAsArrayBuffer(inputEl.files[0]);
+                }
+            };
+        }
+    } else {
+        if (clickX <= 100 && clickY <= 100) {
+            const payload = {type: "click",  data: {x: clickX, y: clickY}};
+            socketWorker.postMessage(JSON.stringify(payload));
+        }
+    }
 };
 
 const keydown = function(key) {
@@ -397,30 +560,131 @@ const unlock = () => {
 
 document.addEventListener("touchstart", unlock, false);
 
-canvas.addEventListener("mousedown", function() {
+const canClick = (x, y) => {
+    let isClickable = false;
+    let action = null;
+    let nodeId = null;
+
+    if (x < canvas.offsetLeft - window.scrollLeft) {
+        return false;
+    }
+
+    for (const chunkIndex in thingIndices) {
+        const clickableIndexChunk = thingIndices[chunkIndex];
+
+        let vertices = clickableIndexChunk[3];
+        // TODO: fix this hack
+        if (!vertices[0].length) {
+            let verticesSwp = new Array(vertices.length / 2);
+            for (let i = 0; i < vertices.length; i+=2) {
+                verticesSwp[i/2] = [vertices[i], vertices[i+1]];
+            }
+            vertices = verticesSwp;
+        }
+        let isInside = false;
+
+        let minX = translateX(vertices[0][0]);
+        let maxX = translateX(vertices[0][0]);
+        let minY = translateY(vertices[0][1]);
+        let maxY = translateY(vertices[0][1]);
+
+        if (vertices.length == 5 && false) {
+
+            const startX = vertices[0][0];// * canvas.width / 100;
+            const startY = vertices[0][1];// * canvas.height / 100;
+            ctx.fillStyle = 'rgba(255,0,0,255)';
+            ctx.fillRect(500, 500, 500, 500);
+//            ctx.fillRect(translateX(startX), translateY(startY), 1000, 1000);
+//            ctx.fillRect(textStartX * canvas.width / 100, thing.text.y * canvas.height / 100, textWidthPercent * canvas.width, textHeightPercent * canvas.height);
+
+
+        }
+
+        for (let i = 1; i < vertices.length; i++) {
+            const vert = vertices[i];
+            minX = Math.min(translateX(vert[0]), minX);
+            maxX = Math.max(translateX(vert[0]), maxX);
+            minY = Math.min(translateY(vert[1]), minY);
+            maxY = Math.max(translateY(vert[1]), maxY);
+        }
+
+        if (!(x < minX || x > maxX || y < minY || y > maxY)) {
+            let i = 0;
+            let j = vertices.length - 1;
+            for (i, j; i < vertices.length; j=i++) {
+                if ((translateY(vertices[i][1]) > y) != (translateY(vertices[j][1]) > y) &&
+                        x < (translateX(vertices[j][0]) - translateX(vertices[i][0])) * (y - translateY(vertices[i][1])) / (translateY(vertices[j][1]) - translateY(vertices[i][1])) + translateX(vertices[i][0])) {
+                        isInside = !isInside;
+                }
+            }
+        }
+ 
+        if (isInside) {
+            isClickable = clickableIndexChunk[0];
+            action = clickableIndexChunk[1];
+            nodeId = clickableIndexChunk[2];
+        }
+
+
+//        const intersects = (
+//            x >= clickableIndexChunk[3] && 
+//            x <= clickableIndexChunk[4]
+//        ) && (
+//            y >= clickableIndexChunk[5] && 
+//            y <= clickableIndexChunk[6]) ;
+//        if (intersects) {
+//            isClickable = clickableIndexChunk[0];
+//            action = clickableIndexChunk[1];
+//            nodeId = clickableIndexChunk[2];
+//        }
+    }
+
+    return {
+        isClickable,
+        action,
+        nodeId
+    }
+};
+
+const translateX = (x) => {
+    const translated = (x * clientWidth / 100) + canvas.offsetLeft + window.scrollX;
+    return translated;
+};
+const translateY = (y) => {
+    return (y * clientHeight / 100) + canvas.offsetTop + window.scrollY;
+};
+
+window.addEventListener("mousedown", function(e) {
     mouseDown = true;
+    mousePos = [e.clientX, e.clientY];
     unlock();
+//    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+//    click(clickInfo);//e.clientX + window.scrollX, e.clientY + window.scrollY);
 });
 
-canvas.addEventListener("mouseup", function(e) {
-    click(e.clientX, e.clientY);
+window.addEventListener("mouseup", function(e) {
     mouseDown = false;
 });
 
 canvas.addEventListener("mousemove", function(e) {
-    if (mouseDown) {
-        click(e.clientX, e.clientY);
-    }
 });
 
-canvas.addEventListener("touchstart", function(e) {
+window.addEventListener("touchstart", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX, e.touches["0"].clientY);
+    mouseDown = true;
+    mousePos = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+//    const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
+//    click(clickInfo);
 });
 
 canvas.addEventListener("touchmove", function(e) {
     e.preventDefault();
-    click(e.touches["0"].clientX, e.touches["0"].clientY);
+    mouseDown = true;
+    mousePos = [e.touches["0"].clientX + window.scrollX, e.touches["0"].clientY + window.scrollY];
+});
+
+window.addEventListener('touchend', () => {
+    mouseDown = false;
 });
 
 function keyMatters(event) {
@@ -458,6 +722,11 @@ if (isMobile()) {
     });
 }
 
+window.addEventListener('mousemove', (e) => {
+    mousePos = [e.clientX + window.scrollX, e.clientY + window.scrollY];
+});
+
 window.addEventListener('resize', () => {
     initCanvas(window.gameWidth, window.gameHeight);
+    currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 });
