@@ -7,7 +7,7 @@
   },
   "bin": "app_server.js",
   "pkg": {
-    "assets": "web/**/*"
+    "assets": ["src/*", "web/**/*"]
   },
   "scripts": {
     "test": "npm run-script test",
