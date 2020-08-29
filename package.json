@@ -28,6 +28,6 @@
   },
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
-    "squishjs": "0.5.0"
+    "squishjs": "0.5.1"
   }
 }
