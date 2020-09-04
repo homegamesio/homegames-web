@@ -7,7 +7,10 @@
   },
   "bin": "app_server.js",
   "pkg": {
-    "assets": ["src/*", "web/**/*"]
+    "assets": [
+      "src/*",
+      "web/**/*"
+    ]
   },
   "scripts": {
     "test": "npm run-script test",
@@ -28,6 +31,6 @@
   },
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
-    "squishjs": "0.5.1"
+    "squishjs": "0.5.2"
   }
 }
