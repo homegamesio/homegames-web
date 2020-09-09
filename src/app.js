@@ -154,130 +154,127 @@ function renderBuf(buf) {
         let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize));
 
-        if (thing.playerId === 0 || thing.playerId === window.playerId) {
-            if (!thing.coordinates2d && thing.input && thing.text) {
-                const maxTextSize = Math.floor(canvas.width);
-                const fontSize = (thing.text.size / 100) * maxTextSize;
-                ctx.font = fontSize + "px sans-serif";
+        if (!thing.coordinates2d && thing.input && thing.text) {
+            const maxTextSize = Math.floor(canvas.width);
+            const fontSize = (thing.text.size / 100) * maxTextSize;
+            ctx.font = fontSize + "px sans-serif";
  
-                const textInfo = ctx.measureText(thing.text.text);
-                let textStartX = thing.text.x * canvas.width / 100;
+            const textInfo = ctx.measureText(thing.text.text);
+            let textStartX = thing.text.x * canvas.width / 100;
+            
+            if (thing.text.align && thing.text.align == 'center') {
+                textStartX -= textInfo.width / 2;
+            }
+
+            textStartX = textStartX / canvas.width * 100;
+            const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
+            const textWidthPercent = textInfo.width / canvas.width * 100;
+            const textHeightPercent = textHeight / canvas.height * 100;
+
+            const clickableChunk = [
+                !!thing.handleClick,
+                thing.input && thing.input.type,
+                thing.id,
+                [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
+            ];
+            thingIndices.push(clickableChunk);
+        } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
+            const clickableChunk = [
+                !!thing.handleClick,
+                thing.input && thing.input.type,
+                thing.id,
+                thing.coordinates2d
+            ];
+            thingIndices.push(clickableChunk);
+
+            if (thing.effects && thing.effects.shadow) {
+                const shadowColor = thing.effects.shadow.color;
+                ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                if (thing.effects.shadow.blur) {
+                    ctx.shadowBlur = thing.effects.shadow.blur;
+                }
+            }
+
+            if (thing.color) {
+                ctx.globalAlpha = thing.color[3] / 255;
+            }
+            if (thing.fill !== null && thing.fill !== undefined) {
+                ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
+            }
+            if (thing.border !== undefined && thing.border !== null) {
+                ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
+                ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
+            } 
+
+            if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
+                ctx.beginPath();
                 
-                if (thing.text.align && thing.text.align == 'center') {
-                    textStartX -= textInfo.width / 2;
+                ctx.moveTo(thing.coordinates2d[0] * canvas.width / 100, thing.coordinates2d[1] * canvas.height / 100);
+                for (let i = 2; i < thing.coordinates2d.length; i+=2) {
+                    ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i], thing.coordinates2d[i+1] * canvas.height / 100);
                 }
-
-                textStartX = textStartX / canvas.width * 100;
-                const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
-                const textWidthPercent = textInfo.width / canvas.width * 100;
-                const textHeightPercent = textHeight / canvas.height * 100;
-
-                const clickableChunk = [
-                    !!thing.handleClick,
-                    thing.input && thing.input.type,
-                    thing.id,
-                    [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
-                ];
-                thingIndices.push(clickableChunk);
-            } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
-                const clickableChunk = [
-                    !!thing.handleClick,
-                    thing.input && thing.input.type,
-                    thing.id,
-                    thing.coordinates2d
-                ];
-                thingIndices.push(clickableChunk);
-
-                if (thing.effects && thing.effects.shadow) {
-                    const shadowColor = thing.effects.shadow.color;
-                    ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
-                    if (thing.effects.shadow.blur) {
-                        ctx.shadowBlur = thing.effects.shadow.blur;
-                    }
+    
+                if (thing.fill !== undefined && thing.fill !== null) {
+                    ctx.fill();
                 }
-
-                if (thing.color) {
-                    ctx.globalAlpha = thing.color[3] / 255;
-                }
-                if (thing.fill !== null && thing.fill !== undefined) {
-                    ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
-                }
+    
                 if (thing.border !== undefined && thing.border !== null) {
-                    ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
-                    ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-                } 
-
-                if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
-                    ctx.beginPath();
-                    
-                    ctx.moveTo(thing.coordinates2d[0] * canvas.width / 100, thing.coordinates2d[1] * canvas.height / 100);
-                    for (let i = 2; i < thing.coordinates2d.length; i+=2) {
-                        ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i], thing.coordinates2d[i+1] * canvas.height / 100);
-                    }
-    
-                    if (thing.fill !== undefined && thing.fill !== null) {
-                        ctx.fill();
-                    }
-    
-                    if (thing.border !== undefined && thing.border !== null) {
-                        ctx.stroke();
-                    }
+                    ctx.stroke();
                 }
-                ctx.shadowColor = null;
-                ctx.shadowBlur = 0;
-                ctx.lineWidth = 0;
-                ctx.strokeStyle = null;
             }
+            ctx.shadowColor = null;
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 0;
+            ctx.strokeStyle = null;
+        }
 
-            if (thing.text) {
-                ctx.globalAlpha = thing.text.color[3] / 255;
-                ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
-                const maxTextSize = Math.floor(canvas.width);
-                const fontSize = (thing.text.size / 100) * maxTextSize;
-                ctx.font = fontSize + "px sans-serif";
-                if (thing.text.align) {
-                    ctx.textAlign = thing.text.align;
-                }
-                ctx.textBaseline = "top";
-                ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
+        if (thing.text) {
+            ctx.globalAlpha = thing.text.color[3] / 255;
+            ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
+            const maxTextSize = Math.floor(canvas.width);
+            const fontSize = (thing.text.size / 100) * maxTextSize;
+            ctx.font = fontSize + "px sans-serif";
+            if (thing.text.align) {
+                ctx.textAlign = thing.text.align;
             }
+            ctx.textBaseline = "top";
+            ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
+        }
 
-            if (thing.asset) {
-                const assetKey = Object.keys(thing.asset)[0];
+        if (thing.asset) {
+            const assetKey = Object.keys(thing.asset)[0];
 
-                if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                    if (audioCtx && gameAssets[assetKey].decoded) {
-                        source = audioCtx.createBufferSource();
-                        source.connect(audioCtx.destination);
-                        source.buffer = gameAssets[assetKey].data;
-                        source.start(0);
-                    } else {
-                        console.warn("Cant play audio");
-                    }
+            if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
+                if (audioCtx && gameAssets[assetKey].decoded) {
+                    source = audioCtx.createBufferSource();
+                    source.connect(audioCtx.destination);
+                    source.buffer = gameAssets[assetKey].data;
+                    source.start(0);
                 } else {
-                    const asset = thing.asset[assetKey];
-                    let image;
+                    console.warn("Cant play audio");
+                }
+            } else {
+                const asset = thing.asset[assetKey];
+                let image;
 
-                    if (imageCache[assetKey]) {
-                        image = imageCache[assetKey];
-                        image.width = asset.size.x / 100 * canvas.width;
-                        image.height = asset.size.y / 100 * canvas.height;
+                if (imageCache[assetKey]) {
+                    image = imageCache[assetKey];
+                    image.width = asset.size.x / 100 * canvas.width;
+                    image.height = asset.size.y / 100 * canvas.height;
+                    ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                        (asset.pos.y / 100) * canvas.height, image.width, image.height);
+                } else {
+                    image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
+                    imageCache[assetKey] = image;
+                    image.onload = () => {
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                             (asset.pos.y / 100) * canvas.height, image.width, image.height);
-                    } else {
-                        image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
-                        imageCache[assetKey] = image;
-                        image.onload = () => {
-                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
-                                (asset.pos.y / 100) * canvas.height, image.width, image.height);
-                        };
+                    };
 
-                        if (gameAssets[assetKey]) {
-                            image.src = gameAssets[assetKey].data;
-                        }
+                    if (gameAssets[assetKey]) {
+                        image.src = gameAssets[assetKey].data;
                     }
                 }
-
             }
 
         }
