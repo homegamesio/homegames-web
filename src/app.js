@@ -78,7 +78,6 @@ const ctx = canvas.getContext("2d", {alpha: false});
 const initCanvas = () => {
     const maxWidth = window.innerWidth;
     const maxHeight = window.innerHeight;
-//    aspectRatio = {x: maxWidth, y: maxHeight};
 
     const canFitHeight = (maxWidth * aspectRatio.y / aspectRatio.x) <= maxHeight;
 
