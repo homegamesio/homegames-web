@@ -76,16 +76,23 @@ gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]},
 const ctx = canvas.getContext("2d", {alpha: false});
 
 const initCanvas = () => {
-    // fit canvas to height
-    
+    const maxWidth = window.innerWidth;
+    const maxHeight = window.innerHeight;
 
-    // height / width == 3 / 4
-    // innerhieght / x == 3 / 4
-    // x = innerheight / (3 / 4)
-    const height = window.innerHeight;
-    const canvasWidth = Math.floor(height / (aspectRatio.y / aspectRatio.x));
-    const canvasHeight = height;
-    //const canvasHeight = (window.innerWidth * aspectRatio.y) / aspectRatio.x;
+    const canFitHeight = (maxWidth * aspectRatio.y / aspectRatio.x) <= maxHeight;
+
+    let canvasHeight, canvasWidth;
+
+    if (canFitHeight) { 
+        const width = window.innerWidth;
+        canvasWidth = width;
+        canvasHeight = Math.floor(width * (aspectRatio.y / aspectRatio.x));
+    } else {
+        // fit canvas to height
+        const height = window.innerHeight;
+        canvasWidth = Math.floor(height * (aspectRatio.x / aspectRatio.y));
+        canvasHeight = height;
+    }
 
     canvas.height = 2 * canvasHeight;
     canvas.width = 2 * canvasWidth;
@@ -694,14 +701,6 @@ function isMobile() {
 }
 
 if (isMobile()) {
-    document.getElementById("text-hack").addEventListener("input", (e) => {
-        let eventKey = e.data ? e.data.charAt(e.data.length - 1) : "Backspace";
-        e.key = eventKey;
-        if (keyMatters(e) && !keysDown["Meta"]) {
-            e.preventDefault && e.preventDefault();
-            keydown(e.key);
-        }
-    });
 } else {
     document.addEventListener("keydown", function(e) {
         if (keyMatters(e) && !keysDown["Meta"]) {
