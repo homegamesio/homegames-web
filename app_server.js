@@ -1,6 +1,12 @@
 const http = require("http");
+const https = require("https");
 const fs = require('fs');
 const path = require('path');
+const config = require('./config');
+const { login, promptLogin, verifyAccessToken, storeTokens, linkInit, getLoginInfo, guaranteeCerts, refreshAccessToken } = require('homegames-common');
+
+const HTTP_PORT = 80;
+const HTTPS_PORT = 443;
 
 const PATH_MAP = {
     "/": { 
@@ -25,7 +31,7 @@ const PATH_MAP = {
     }
 };
 
-http.createServer((req, res) => {
+const app = (req, res) => {
     let requestPath = req.url;
 
     const queryParamIndex = requestPath.indexOf("?");
@@ -45,4 +51,77 @@ http.createServer((req, res) => {
         res.statusCode = 404;
         res.end();
     }
-}).listen(80);
+};
+
+if (config.ACCOUNT_ENABLED) {
+    getLoginInfo(config.AUTH_DATA_PATH).then(info => {
+        verifyAccessToken(info.username, info.tokens.accessToken).then(() => {
+            refreshAccessToken(info.username, info.tokens).then(newTokens => {
+                storeTokens(config.AUTH_DATA_PATH, info.username, newTokens).then(() => {
+                    guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
+                        const options = {
+                            key: fs.readFileSync(certPaths.keyPath).toString(),
+                            cert: fs.readFileSync(certPaths.certPath).toString()
+                        };
+
+                        if (config.LINK_ENABLED) {
+                            linkInit(config.AUTH_DATA_PATH);
+                        }
+
+                        https.createServer(options, app).listen(HTTPS_PORT);
+                    });
+                });
+            })
+        }).catch(err => {
+            promptLogin().then((info) => {
+                login(info.username, info.password).then((tokens) => {
+                    storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
+                        guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
+                            const options = {
+                                key: fs.readFileSync(certPaths.keyPath).toString(),
+                                cert: fs.readFileSync(certPaths.certPath).toString()
+                            };
+
+                            if (config.LINK_ENABLED) {
+                                linkInit(config.AUTH_DATA_PATH);
+                            }
+
+                            https.createServer(options, app).listen(HTTPS_PORT);
+                        });
+                    });
+                });
+            });
+        });
+    }).catch(err => {
+        promptLogin().then((info) => {
+            login(info.username, info.password).then((tokens) => {
+                storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
+                    guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
+                        const options = {
+                            key: fs.readFileSync(certPaths.keyPath).toString(),
+                            cert: fs.readFileSync(certPaths.certPath).toString()
+                        };
+
+                        if (config.LINK_ENABLED) {
+                            linkInit(config.AUTH_DATA_PATH);
+                        }
+
+                        https.createServer(options, app).listen(HTTPS_PORT);
+                    });
+                });
+            });
+        });
+
+    });
+} else {
+    http.createServer(app).listen(HTTP_PORT);
+}
+
+//    console.log('Skipping log in. Security features will be unavailable')
+
+//linkInit().then(() => {
+//        console.log("INITIALIZED LINK INIT");
+//    });
+
+//https.createServer(options, (req, res) => {
+//}).listen(443);
