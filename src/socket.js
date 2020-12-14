@@ -1,6 +1,6 @@
 let socket;
 const initSocket = (hostname, port, playerId) => {
-    socket = new WebSocket("ws://" + hostname + ":" + port);
+    socket = new WebSocket("wss://" + hostname + ":" + port);
 
     socket.binaryType = "arraybuffer";
 
