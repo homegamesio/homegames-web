@@ -75,8 +75,12 @@ if (config.ACCOUNT_ENABLED) {
         }).catch(err => {
             promptLogin().then((info) => {
                 login(info.username, info.password).then((tokens) => {
+                    console.log('logged in');
                     storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
+                        console.log('stored auth tokens. getting certs...');
                         guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
+                            console.log('about to start server');
+                            setTimeout(() => {
                             const options = {
                                 key: fs.readFileSync(certPaths.keyPath).toString(),
                                 cert: fs.readFileSync(certPaths.certPath).toString()
@@ -87,6 +91,7 @@ if (config.ACCOUNT_ENABLED) {
                             }
 
                             https.createServer(options, app).listen(HTTPS_PORT);
+                            }, 3500);
                         });
                     });
                 });
@@ -95,18 +100,23 @@ if (config.ACCOUNT_ENABLED) {
     }).catch(err => {
         promptLogin().then((info) => {
             login(info.username, info.password).then((tokens) => {
+                console.log('logged in');
                 storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
+                    console.log('stored auth tokens. getting certs...');
                     guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
-                        const options = {
-                            key: fs.readFileSync(certPaths.keyPath).toString(),
-                            cert: fs.readFileSync(certPaths.certPath).toString()
-                        };
+                        console.log('about to start server');
+                        setTimeout(() => {
+                            const options = {
+                                key: fs.readFileSync(certPaths.keyPath).toString(),
+                                cert: fs.readFileSync(certPaths.certPath).toString()
+                            };
 
-                        if (config.LINK_ENABLED) {
-                            linkInit(config.AUTH_DATA_PATH);
-                        }
+                            if (config.LINK_ENABLED) {
+                                linkInit(config.AUTH_DATA_PATH);
+                            }
 
-                        https.createServer(options, app).listen(HTTPS_PORT);
+                            https.createServer(options, app).listen(HTTPS_PORT);
+                        }, 4500);
                     });
                 });
             });

@@ -31,8 +31,9 @@
   },
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
+    "audio-recorder-polyfill": "^0.4.1",
     "homegames-common": "file:../../homegames-common",
-    "squishjs": "0.5.2",
+    "squishjs": "file:../../squish",
     "ws": "^7.4.1"
   }
 }
