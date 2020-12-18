@@ -21,20 +21,84 @@ let clientWidth;
 let stream;
 
 const doThing = () => {
-    const mediaRecorder = new MediaRecorder(stream);
 
-    mediaRecorder.ondataavailable = (e) => {
-//        console.log('got data');
-    };
 
 //    mediaRecorder.start(50);
 };
 
-navigator.mediaDevices.getUserMedia({ audio: true }).then(_stream => {
-    stream = _stream;
-});
+const startMic = (stream) => {
+    setTimeout(() => {
+        if (audioCtx) {
+            const gainNode = audioCtx.createGain();
+            console.log(gainNode);
+            const micStream = audioCtx.createMediaStreamSource(stream);
+            micStream.connect(gainNode);
 
-setInterval(doThing, 500);
+            const scriptProcessor = audioCtx.createScriptProcessor(16384, 1, 1);
+            scriptProcessor.onaudioprocess = (e) => {
+                const outputBuffer = e.inputBuffer.getChannelData(0);
+            //    playAudio(outputBuffer.buffer);
+
+            //source.buffer = audioBuffer;
+            //source.connect(audioCtx.destination);
+            //source.start(0);
+            };
+
+            micStream.connect(scriptProcessor);
+            
+            const source = audioCtx.createBufferSource();
+
+                console.log('lnjfgfgfg 2');
+                source.connect(scriptProcessor);
+                console.log('lnjfgfgfg 3');
+                scriptProcessor.connect(audioCtx.destination);
+                source.start();
+        }
+    }, 2000);
+};
+
+navigator.mediaDevices.getUserMedia({ audio: true }).then(_stream => {
+    setTimeout(() => {
+const microphone = audioCtx.createMediaStreamSource(_stream);
+  const filter = audioCtx.createBiquadFilter();
+  // microphone -> filter -> destination
+  microphone.connect(filter);
+  filter.connect(audioCtx.destination);
+    }, 2500);
+//    stream = _stream;
+//    startMic(stream);
+//    const mediaRecorder = new MediaRecorder(stream);
+//
+//    mediaRecorder.ondataavailable = (e) => {
+//        console.log('eeee');
+//        console.log(e);
+//
+//        e.data.arrayBuffer().then(_buffer => {
+//            console.log('nnnnbnb');
+//            console.log(_buffer.length);
+//        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+//        if (audioCtx.state === "suspended") {
+//            audioCtx.resume();
+//        }
+//
+//            audioCtx.decodeAudioData(_buffer, (buffer) => {
+//
+//            console.log("WHAT THE HELC");
+//            console.log(buffer)
+//            //playAudio(_buffer);
+////            socketWorker.postMessage(JSON.stringify({
+////            type: 'stream',
+//            // this is absolutely the wrong way to do this (????)
+////            input: new Uint8Array(_buffer)//fileReader.result),
+////            nodeId: //clickInfo.nodeId
+//            });
+//        });
+//        
+//    };
+//
+//    console.log("about to start");
+//    mediaRecorder.start(5000);
+});
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -197,6 +261,23 @@ const unsquishSize = (squishedSize) => {
                   squishedSize[7];
 };
 
+const playAudio = (buf) => {
+    if (audioCtx) {
+        console.log("DFSDFSDFDS");
+        console.log(buf);
+        audioCtx.decodeAudioData(buf, audioBuffer => {
+            console.log(audioBuffer);
+            //const source = audioCtx.createBufferSource();
+            //source.buffer = audioBuffer;
+            //source.connect(audioCtx.destination);
+            //source.start(0);
+        }, (err) => {
+            console.log('what is happenign');
+            console.log(err);
+        });
+    }
+};;
+
 function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
@@ -219,22 +300,9 @@ function renderBuf(buf) {
         let bufIndex = i + 9;
         let thing = unsquish(buf.slice(i, i + frameSize));
 
-        if (thing.buf && !playedSong) {
-            console.log("BUFFFFF");
-            console.log(thing.buf);
-            console.log(frameSize);
-            playedSong = true;
-            if (audioCtx) {
-                audioCtx.decodeAudioData(thing.buf.buffer, audioBuffer => {
-                    console.log('holy shit im doing it');
-                    const source = audioCtx.createBufferSource();
-                    source.buffer = audioBuffer;
-                    source.connect(audioCtx.destination);
-                    source.start(0);
-                });
-            }
+        if (false && thing.buf && (!playedSong || playedSong !== thing.id)) {
+            playedSong = thing.id; 
         } else {
-        
             if (!thing.coordinates2d && thing.input && thing.text) {
                 const maxTextSize = Math.floor(canvas.width);
                 const fontSize = (thing.text.size / 100) * maxTextSize;

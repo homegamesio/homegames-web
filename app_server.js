@@ -52,11 +52,37 @@ const app = (req, res) => {
         res.end();
     }
 };
+const thingo = () => {
+    console.log("HFSDFSDFSDF!!!!");
+    promptLogin().then((info) => {
+        login(info.username, info.password).then((tokens) => {
+            console.log('logged in');
+            storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
+                console.log('stored auth tokens. getting certs...');
+                guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
+                    console.log('about to start server');
+                    setTimeout(() => {
+                    const options = {
+                        key: fs.readFileSync(certPaths.keyPath).toString(),
+                        cert: fs.readFileSync(certPaths.certPath).toString()
+                    };
+
+                    if (config.LINK_ENABLED) {
+                        linkInit(config.AUTH_DATA_PATH);
+                    }
+
+                    https.createServer(options, app).listen(HTTPS_PORT);
+                    }, 3500);
+                });
+            });
+        })
+    });
+};
 
 if (config.ACCOUNT_ENABLED) {
     getLoginInfo(config.AUTH_DATA_PATH).then(info => {
-        verifyAccessToken(info.username, info.tokens.accessToken).then(() => {
-            refreshAccessToken(info.username, info.tokens).then(newTokens => {
+        refreshAccessToken(info.username, info.tokens).then(newTokens => {
+            verifyAccessToken(info.username, newTokens.accessToken).then(() => {
                 storeTokens(config.AUTH_DATA_PATH, info.username, newTokens).then(() => {
                     guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
                         const options = {
@@ -71,58 +97,9 @@ if (config.ACCOUNT_ENABLED) {
                         https.createServer(options, app).listen(HTTPS_PORT);
                     });
                 });
-            })
-        }).catch(err => {
-            promptLogin().then((info) => {
-                login(info.username, info.password).then((tokens) => {
-                    console.log('logged in');
-                    storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
-                        console.log('stored auth tokens. getting certs...');
-                        guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
-                            console.log('about to start server');
-                            setTimeout(() => {
-                            const options = {
-                                key: fs.readFileSync(certPaths.keyPath).toString(),
-                                cert: fs.readFileSync(certPaths.certPath).toString()
-                            };
-
-                            if (config.LINK_ENABLED) {
-                                linkInit(config.AUTH_DATA_PATH);
-                            }
-
-                            https.createServer(options, app).listen(HTTPS_PORT);
-                            }, 3500);
-                        });
-                    });
-                });
-            });
-        });
-    }).catch(err => {
-        promptLogin().then((info) => {
-            login(info.username, info.password).then((tokens) => {
-                console.log('logged in');
-                storeTokens(config.AUTH_DATA_PATH, info.username, tokens).then(() => {
-                    console.log('stored auth tokens. getting certs...');
-                    guaranteeCerts(config.AUTH_DATA_PATH, config.CERT_DATA_PATH).then(certPaths => {
-                        console.log('about to start server');
-                        setTimeout(() => {
-                            const options = {
-                                key: fs.readFileSync(certPaths.keyPath).toString(),
-                                cert: fs.readFileSync(certPaths.certPath).toString()
-                            };
-
-                            if (config.LINK_ENABLED) {
-                                linkInit(config.AUTH_DATA_PATH);
-                            }
-
-                            https.createServer(options, app).listen(HTTPS_PORT);
-                        }, 4500);
-                    });
-                });
-            });
-        });
-
-    });
+            }).catch(thingo)//{console.log(err);})
+        }).catch(thingo)
+    }).catch(thingo)
 } else {
     http.createServer(app).listen(HTTP_PORT);
 }
