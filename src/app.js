@@ -1,11 +1,6 @@
 let { squish, unsquish, Colors } = require('squishjs');
-const AudioRecorder = require('audio-recorder-polyfill');
 
 Colors = Colors.COLORS;
-
-if (!window.MediaRecorder) {
-    window.MediaRecorder = AudioRecorder;
-}
 
 const socketWorker = new Worker('socket.js');
 
@@ -29,6 +24,7 @@ const doThing = () => {
 const startMic = (stream) => {
     setTimeout(() => {
         if (audioCtx) {
+            console.log('wat');
             const gainNode = audioCtx.createGain();
             console.log(gainNode);
             const micStream = audioCtx.createMediaStreamSource(stream);
@@ -36,7 +32,14 @@ const startMic = (stream) => {
 
             const scriptProcessor = audioCtx.createScriptProcessor(16384, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
+                console.log('doing this');
                 const outputBuffer = e.inputBuffer.getChannelData(0);
+                console.log(outputBuffer.buffer);
+                audioCtx.decodeAudioData(outputBuffer.buffer, (buffer) => {
+                    console.log("DOD SDLFGG");
+                    console.log(buffer);
+                });
+
             //    playAudio(outputBuffer.buffer);
 
             //source.buffer = audioBuffer;
@@ -57,22 +60,55 @@ const startMic = (stream) => {
     }, 2000);
 };
 
+let currentChunk = new Uint8Array().buffer;
+
+const combineBufs = (buf1, buf2) => {
+    const tmp = new Uint8Array(buf1.byteLength + buf2.byteLength);
+    tmp.set(new Uint8Array(buf1), 0);
+    tmp.set(new Uint8Array(buf2), buf1.byteLength);
+    return tmp.buffer;
+};
+
+const getAudioChunk = (stream, recordTime, cb) => {
+    if (!audioCtx) {
+        return;
+    }
+
+    const mediaRecorder = new MediaRecorder(stream);
+    
+    mediaRecorder.ondataavailable = (e) => {
+        e.data.arrayBuffer().then(buf => {
+            console.log(buf);
+        if (audioCtx.state === "suspended") {
+                audioCtx.resume();
+        }
+
+            audioCtx.decodeAudioData(buf).then(_f => {
+                console.log(_f);
+                cb && cb(_f);
+            }).catch(err => {
+                console.log('odmfsdfg');
+                console.log(err);
+            });
+        });
+    };
+
+    console.log('starting ' + recordTime);
+    mediaRecorder.start(recordTime);
+};
+
+const listenToChunks = (stream, interval, cb) => {
+    setTimeout(() => getAudioChunk(stream, 5000, cb), 1000);
+//    setInterval(() => {
+//        getAudioChunk(stream, 500, cb);
+//    }, 1000);
+};
+
 navigator.mediaDevices.getUserMedia({ audio: true }).then(_stream => {
-    setTimeout(() => {
-const microphone = audioCtx.createMediaStreamSource(_stream);
-  const filter = audioCtx.createBiquadFilter();
-  // microphone -> filter -> destination
-  microphone.connect(filter);
-  filter.connect(audioCtx.destination);
-    }, 2500);
-//    stream = _stream;
-//    startMic(stream);
-//    const mediaRecorder = new MediaRecorder(stream);
-//
-//    mediaRecorder.ondataavailable = (e) => {
-//        console.log('eeee');
-//        console.log(e);
-//
+    console.log(_stream);
+//    listenToChunks(_stream, 1000, (chunk) => {
+//        console.log("i got a chunk");
+//    });
 //        e.data.arrayBuffer().then(_buffer => {
 //            console.log('nnnnbnb');
 //            console.log(_buffer.length);
@@ -80,24 +116,97 @@ const microphone = audioCtx.createMediaStreamSource(_stream);
 //        if (audioCtx.state === "suspended") {
 //            audioCtx.resume();
 //        }
+    
+//    const recorder = new MediaRecorder(_stream);
+//    recorder.addEventListener('dataavailable', (e) => {
+//        e.data.arrayBuffer().then(buffer => {
+//            console.log('got bufff ' + buffer.byteLength);
+//            currentChunk = combineBufs(currentChunk, buffer);
+//            console.log('running chunk is ' + currentChunk.byteLength);
+//            if (audioCtx) {
+//                let success = false;
+//                audioCtx.decodeAudioData(currentChunk).then(_f => {
+//                    success = true;
+//                    console.log(_f);
+//                    currentChunk = new Uint8Array().buffer;
+//                }).catch(err => {
+//                    console.log('sdkjhfsg');
+//                    console.log(err);
+//                    audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+//                });
+//            }
+//        })
+//    });
 //
-//            audioCtx.decodeAudioData(_buffer, (buffer) => {
-//
-//            console.log("WHAT THE HELC");
-//            console.log(buffer)
-//            //playAudio(_buffer);
-////            socketWorker.postMessage(JSON.stringify({
-////            type: 'stream',
-//            // this is absolutely the wrong way to do this (????)
-////            input: new Uint8Array(_buffer)//fileReader.result),
-////            nodeId: //clickInfo.nodeId
-//            });
-//        });
-//        
-//    };
-//
-//    console.log("about to start");
-//    mediaRecorder.start(5000);
+//    recorder.start(500);
+//    stream = _stream;
+//    startMic(_stream);
+    //
+
+const doThing = (cb) => {
+    const mediaRecorder = new MediaRecorder(_stream);
+
+    let first;
+    mediaRecorder.ondataavailable = (e) => {
+        if (first) {
+            first.arrayBuffer().then(_buf1 => {
+                e.data.arrayBuffer().then(_buf2 => {
+                    if (audioCtx) {
+                        if (audioCtx.state === "suspended") {
+                            audioCtx.resume();
+                        }
+                        
+                        audioCtx.decodeAudioData(combineBufs(_buf1, _buf2), (buffer) => {
+                            cb && cb(buffer);
+                        });
+                    }
+                });
+            });
+        } else {
+            first = e.data;
+            mediaRecorder.stop();
+        }
+        //let firstBuf;
+
+        //e.data.arrayBuffer().then(_buffer => {
+        //        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+        //        if (audioCtx.state === "suspended") {
+        //            audioCtx.resume();
+        //        }
+
+        //        audioCtx.decodeAudioData(_buffer, (buffer) => {
+        //            firstBuf = true;
+        //            cb && cb(buffer);
+        //            mediaRecorder.stop();
+        //        }, (err) => {
+        //            console.log('i probably dont care?');
+        //            console.log(err);
+        //        });
+        //        //playAudio(_buffer);
+//      //          socketWorker.postMessage(JSON.stringify({
+//      //          type: 'stream',
+        //        // this is absolutely the wrong way to do this (????)
+//      //          input: new Uint8Array(_buffer)//fileReader.result),
+//      //          nodeId: //clickInfo.nodeId
+        //});
+        
+    };
+
+    //mediaRecorder.start();
+    //setTimeout(mediaRecorder.stop, 5000);
+    mediaRecorder.start(1000);
+};
+
+    setInterval(() => 
+    doThing((chunk) => {
+        const source = audioCtx.createBufferSource();
+        source.buffer = chunk;
+        source.connect(audioCtx.destination);
+        source.start(0);
+
+    }), 1000);
+//    console.log(_stream.getTracks()[0])
+
 });
 
 socketWorker.onmessage = (socketMessage) => {
