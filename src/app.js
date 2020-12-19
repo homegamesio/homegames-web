@@ -8,6 +8,8 @@ const socketWorker = new Worker('socket.js');
 
 let state = {};
 
+let lastClick;
+
 let currentBuf;
 
 let rendering = false;
@@ -18,53 +20,6 @@ let mousePos;
 let clientHeight, clientWidth;
 
 let stream;
-
-const doThing = () => {
-
-
-//    mediaRecorder.start(50);
-};
-
-const startMic = (stream) => {
-    setTimeout(() => {
-        if (audioCtx) {
-            console.log('wat');
-            const gainNode = audioCtx.createGain();
-            console.log(gainNode);
-            const micStream = audioCtx.createMediaStreamSource(stream);
-            micStream.connect(gainNode);
-
-            const scriptProcessor = audioCtx.createScriptProcessor(16384, 1, 1);
-            scriptProcessor.onaudioprocess = (e) => {
-                console.log('doing this');
-                const outputBuffer = e.inputBuffer.getChannelData(0);
-                console.log(outputBuffer.buffer);
-                audioCtx.decodeAudioData(outputBuffer.buffer, (buffer) => {
-                    console.log("DOD SDLFGG");
-                    console.log(buffer);
-                });
-
-            //    playAudio(outputBuffer.buffer);
-
-            //source.buffer = audioBuffer;
-            //source.connect(audioCtx.destination);
-            //source.start(0);
-            };
-
-            micStream.connect(scriptProcessor);
-            
-            const source = audioCtx.createBufferSource();
-
-                console.log('lnjfgfgfg 2');
-                source.connect(scriptProcessor);
-                console.log('lnjfgfgfg 3');
-                scriptProcessor.connect(audioCtx.destination);
-                source.start();
-        }
-    }, 2000);
-};
-
-let currentChunk = new Uint8Array().buffer;
 
 const combineBufs = (buf1, buf2) => {
     const tmp = new Uint8Array(buf1.byteLength + buf2.byteLength);
@@ -93,12 +48,45 @@ const getAudioChunk = (stream, recordTime, cb) => {
     mediaRecorder.start(recordTime);
 };
 
+let micStream;
+
+let audioListener;
 const listenToAudio = (chunkLength, onchunk) => {
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        setInterval(() => {
+        micStream = stream;
+        if (audioListener) {
+            clearInterval(audioListener);
+        }
+
+        audioListener = setInterval(() => {
+            if (!micStream.active) {
+                clearInterval(audioListener);
+            }
             getAudioChunk(stream, chunkLength, onchunk);
         }, chunkLength);
     });
+};
+
+const isTalking = () => {
+    if (micStream) {
+        micStream.getTracks().forEach(track => {
+            if (track.readyState == 'live') {
+                return true;
+            }
+        });
+    }
+
+    return false;
+};
+
+const killMic = () => {
+    if (micStream) {
+        micStream.getTracks().forEach(track => {
+            if (track.readyState == 'live') {
+                track.stop();
+            }
+        });
+    }
 };
 
 socketWorker.onmessage = (socketMessage) => {
@@ -262,21 +250,6 @@ const unsquishSize = (squishedSize) => {
                   squishedSize[7];
 };
 
-const playAudio = (buf) => {
-    if (audioCtx) {
-        audioCtx.decodeAudioData(buf, audioBuffer => {
-            console.log(audioBuffer);
-            //const source = audioCtx.createBufferSource();
-            //source.buffer = audioBuffer;
-            //source.connect(audioCtx.destination);
-            //source.start(0);
-        }, (err) => {
-            console.log('what is happenign');
-            console.log(err);
-        });
-    }
-};;
-
 function renderBuf(buf) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
@@ -300,6 +273,10 @@ function renderBuf(buf) {
         let thing = unsquish(buf.slice(i, i + frameSize));
 
         if (thing.stateSignal) {
+            if (thing.stateSignal === StateSignals.STOP_RECORDING_AUDIO && state.recording) {
+                state.recording = false;
+                killMic();
+            }
             if (thing.stateSignal === StateSignals.START_RECORDING_AUDIO && !state.recording) {
                 state.recording = true;
                 listenToAudio(500, (chunk) => {
@@ -313,7 +290,8 @@ function renderBuf(buf) {
                 });
             }
         }
-        if (thing.buf && (!playedSong || playedSong !== thing.id)) {
+        if (!state.recording && thing.buf && (!playedSong || playedSong !== thing.id)) {
+            console.log('playing thing');
             playedSong = thing.id; 
             if (!audioCtx) {
                 return;
@@ -321,7 +299,6 @@ function renderBuf(buf) {
             if (audioCtx.state === "suspended") {
                 audioCtx.resume();
             }
-
             audioCtx.decodeAudioData(thing.buf.buffer, function(buffer) {//combineBufs(_buf1, _buf2), (buffer) => {
                 source = audioCtx.createBufferSource();
                 source.buffer = buffer;
@@ -637,11 +614,25 @@ function req() {
     if (mousePos) {
         const clickInfo = canClick(mousePos[0], mousePos[1]);//e.clientX, e.clientY);
 
-        if (mouseDown && !clickStopper) {
-            click(clickInfo);
+        if (!mouseDown && holding && holding.nodeId) {
+            breakHold(holding);
+        }
+
+        if (clickInfo && holding && holding.nodeId && holding.nodeId !== clickInfo.nodeId) {
+            breakHold(holding);
+        }
+
+        if (clickInfo.isClickable && mouseDown && !clickStopper) {    
+            if (lastClick && lastClick.nodeId === clickInfo.nodeId) {
+                hold(clickInfo);
+            } else {
+                click(clickInfo);
+            }
+
+            lastClick = clickInfo;
             clickStopper = setTimeout(() => {
                 clickStopper = null;
-            }, 30);
+            }, 10);
         }
 
 
@@ -651,13 +642,49 @@ function req() {
             canvas.style.cursor = 'initial';
         }
 
-        mousePos = null;
+    } else if (!mouseDown && holding) {
+        breakHold(holding);
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
     window.requestAnimationFrame(req);
 }
+
+let holding;
+
+const hold = (clickInfo = {}) => {
+    if (!mousePos) {
+        return;
+    }
+
+    if (!holding || holding.nodeId !== clickInfo.nodeId) {
+        const x = mousePos[0];
+        const y = mousePos[1];
+        const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
+        const clickY = y / clientHeight * 100;
+    
+        if (clickX <= 100 && clickY <= 100) {
+            const payload = {type: "onHold",  nodeId: clickInfo.nodeId};//, data: {x: clickX, y: clickY}};
+            socketWorker.postMessage(JSON.stringify(payload));
+        }
+
+    }
+
+    holding = clickInfo;
+    
+};
+
+const breakHold = () => {
+    if (!holding) {
+        return;
+    }
+
+    const payload = {type: "offHold",  nodeId: holding.nodeId};//, data: {x: clickX, y: clickY}};
+    socketWorker.postMessage(JSON.stringify(payload));
+
+    holding = {};
+};
 
 const click = function(clickInfo = {}) {
     if (!mousePos) {
