@@ -1,8 +1,12 @@
-let { squish, unsquish, Colors } = require('squishjs');
+let { StateSignals, squish, unsquish, Colors } = require('squishjs');
+import AudioRecorder from 'audio-recorder-polyfill'
+window.MediaRecorder = AudioRecorder
 
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
+
+let state = {};
 
 let currentBuf;
 
@@ -11,7 +15,7 @@ let rendering = false;
 let aspectRatio;
 
 let mousePos;
-let clientWidth;
+let clientHeight, clientWidth;
 
 let stream;
 
@@ -70,144 +74,32 @@ const combineBufs = (buf1, buf2) => {
 };
 
 const getAudioChunk = (stream, recordTime, cb) => {
-    if (!audioCtx) {
-        return;
-    }
-
     const mediaRecorder = new MediaRecorder(stream);
-    
-    mediaRecorder.ondataavailable = (e) => {
-        e.data.arrayBuffer().then(buf => {
-            console.log(buf);
-        if (audioCtx.state === "suspended") {
-                audioCtx.resume();
-        }
-
-            audioCtx.decodeAudioData(buf).then(_f => {
-                console.log(_f);
-                cb && cb(_f);
-            }).catch(err => {
-                console.log('odmfsdfg');
-                console.log(err);
-            });
-        });
-    };
-
-    console.log('starting ' + recordTime);
-    mediaRecorder.start(recordTime);
-};
-
-const listenToChunks = (stream, interval, cb) => {
-    setTimeout(() => getAudioChunk(stream, 5000, cb), 1000);
-//    setInterval(() => {
-//        getAudioChunk(stream, 500, cb);
-//    }, 1000);
-};
-
-navigator.mediaDevices.getUserMedia({ audio: true }).then(_stream => {
-    console.log(_stream);
-//    listenToChunks(_stream, 1000, (chunk) => {
-//        console.log("i got a chunk");
-//    });
-//        e.data.arrayBuffer().then(_buffer => {
-//            console.log('nnnnbnb');
-//            console.log(_buffer.length);
-//        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-//        if (audioCtx.state === "suspended") {
-//            audioCtx.resume();
-//        }
-    
-//    const recorder = new MediaRecorder(_stream);
-//    recorder.addEventListener('dataavailable', (e) => {
-//        e.data.arrayBuffer().then(buffer => {
-//            console.log('got bufff ' + buffer.byteLength);
-//            currentChunk = combineBufs(currentChunk, buffer);
-//            console.log('running chunk is ' + currentChunk.byteLength);
-//            if (audioCtx) {
-//                let success = false;
-//                audioCtx.decodeAudioData(currentChunk).then(_f => {
-//                    success = true;
-//                    console.log(_f);
-//                    currentChunk = new Uint8Array().buffer;
-//                }).catch(err => {
-//                    console.log('sdkjhfsg');
-//                    console.log(err);
-//                    audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-//                });
-//            }
-//        })
-//    });
-//
-//    recorder.start(500);
-//    stream = _stream;
-//    startMic(_stream);
-    //
-
-const doThing = (cb) => {
-    const mediaRecorder = new MediaRecorder(_stream);
 
     let first;
-    mediaRecorder.ondataavailable = (e) => {
+    mediaRecorder.addEventListener('dataavailable', (e) => {
         if (first) {
             first.arrayBuffer().then(_buf1 => {
                 e.data.arrayBuffer().then(_buf2 => {
-                    if (audioCtx) {
-                        if (audioCtx.state === "suspended") {
-                            audioCtx.resume();
-                        }
-                        
-                        audioCtx.decodeAudioData(combineBufs(_buf1, _buf2), (buffer) => {
-                            cb && cb(buffer);
-                        });
-                    }
+                        cb && cb (combineBufs(_buf1, _buf2));
                 });
             });
         } else {
             first = e.data;
             mediaRecorder.stop();
         }
-        //let firstBuf;
+    });
 
-        //e.data.arrayBuffer().then(_buffer => {
-        //        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-        //        if (audioCtx.state === "suspended") {
-        //            audioCtx.resume();
-        //        }
-
-        //        audioCtx.decodeAudioData(_buffer, (buffer) => {
-        //            firstBuf = true;
-        //            cb && cb(buffer);
-        //            mediaRecorder.stop();
-        //        }, (err) => {
-        //            console.log('i probably dont care?');
-        //            console.log(err);
-        //        });
-        //        //playAudio(_buffer);
-//      //          socketWorker.postMessage(JSON.stringify({
-//      //          type: 'stream',
-        //        // this is absolutely the wrong way to do this (????)
-//      //          input: new Uint8Array(_buffer)//fileReader.result),
-//      //          nodeId: //clickInfo.nodeId
-        //});
-        
-    };
-
-    //mediaRecorder.start();
-    //setTimeout(mediaRecorder.stop, 5000);
-    mediaRecorder.start(1000);
+    mediaRecorder.start(recordTime);
 };
 
-    setInterval(() => 
-    doThing((chunk) => {
-        const source = audioCtx.createBufferSource();
-        source.buffer = chunk;
-        source.connect(audioCtx.destination);
-        source.start(0);
-
-    }), 1000);
-//    console.log(_stream.getTracks()[0])
-
-});
+const listenToAudio = (chunkLength, onchunk) => {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        setInterval(() => {
+            getAudioChunk(stream, chunkLength, onchunk);
+        }, chunkLength);
+    });
+};
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -372,8 +264,6 @@ const unsquishSize = (squishedSize) => {
 
 const playAudio = (buf) => {
     if (audioCtx) {
-        console.log("DFSDFSDFDS");
-        console.log(buf);
         audioCtx.decodeAudioData(buf, audioBuffer => {
             console.log(audioBuffer);
             //const source = audioCtx.createBufferSource();
@@ -409,8 +299,36 @@ function renderBuf(buf) {
         let bufIndex = i + 9;
         let thing = unsquish(buf.slice(i, i + frameSize));
 
-        if (false && thing.buf && (!playedSong || playedSong !== thing.id)) {
+        if (thing.stateSignal) {
+            if (thing.stateSignal === StateSignals.START_RECORDING_AUDIO && !state.recording) {
+                state.recording = true;
+                listenToAudio(500, (chunk) => {
+                    if (!chunk) {
+                        return
+                    }
+                    socketWorker.postMessage(JSON.stringify({
+                        type: 'stream',
+                        input: new Uint8Array(chunk)
+                    }));
+                });
+            }
+        }
+        if (thing.buf && (!playedSong || playedSong !== thing.id)) {
             playedSong = thing.id; 
+            if (!audioCtx) {
+                return;
+            }
+            if (audioCtx.state === "suspended") {
+                audioCtx.resume();
+            }
+
+            audioCtx.decodeAudioData(thing.buf.buffer, function(buffer) {//combineBufs(_buf1, _buf2), (buffer) => {
+                source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+            });
+ 
         } else {
             if (!thing.coordinates2d && thing.input && thing.text) {
                 const maxTextSize = Math.floor(canvas.width);
