@@ -53,7 +53,6 @@ const app = (req, res) => {
     }
 };
 const thingo = () => {
-    console.log("HFSDFSDFSDF!!!!");
     promptLogin().then((info) => {
         login(info.username, info.password).then((tokens) => {
             console.log('logged in');
@@ -100,6 +99,24 @@ if (config.ACCOUNT_ENABLED) {
             }).catch(thingo)//{console.log(err);})
         }).catch(thingo)
     }).catch(thingo)
+} else if (config.CERT_DATA_PATH) {
+    const options = {
+        key: fs.readFileSync(config.CERT_DATA_PATH + '/key.pem').toString(),
+        cert: fs.readFileSync(config.CERT_DATA_PATH + '/cert.pem').toString()
+    };
+
+    if (config.LINK_ENABLED) {
+        linkInit(config.AUTH_DATA_PATH);
+    }
+
+    https.createServer(options, app).listen(HTTPS_PORT);       
+
+    const HTTP_PORT = 80;
+
+    http.createServer((req, res) => {
+        res.writeHead(301, {'Location': 'https://' + req.headers['host'] + req.url });
+        res.end();
+    }).listen(HTTP_PORT);
 } else {
     http.createServer(app).listen(HTTP_PORT);
 }
