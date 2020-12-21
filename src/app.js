@@ -21,6 +21,8 @@ let clientHeight, clientWidth;
 
 let stream;
 
+let initializedRender = false;
+
 const combineBufs = (buf1, buf2) => {
     const tmp = new Uint8Array(buf1.byteLength + buf2.byteLength);
     tmp.set(new Uint8Array(buf1), 0);
@@ -58,6 +60,7 @@ const listenToAudio = (chunkLength, onchunk) => {
             clearInterval(audioListener);
         }
 
+        getAudioChunk(stream, chunkLength, onchunk);
         audioListener = setInterval(() => {
             if (!micStream.active) {
                 clearInterval(audioListener);
@@ -92,21 +95,37 @@ const killMic = () => {
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
         if (socketMessage.data.type === 'SOCKET_CLOSE') {
-            rendering = false;
         }
     } else {
-        currentBuf = new Uint8ClampedArray(socketMessage.data);
-        if (currentBuf[0] == 2) {
-            window.playerId = currentBuf[1];
-            const aspectRatioX = currentBuf[2];
-            const aspectRatioY = currentBuf[3];
+        let _currentBuf = new Uint8ClampedArray(socketMessage.data);
+        if (_currentBuf[0] == 2) {
+            window.playerId = _currentBuf[1];
+            const aspectRatioX = _currentBuf[2];
+            const aspectRatioY = _currentBuf[3];
             aspectRatio = {x: aspectRatioX, y: aspectRatioY};
             initCanvas();
-        } else if (currentBuf[0] == 1) {
-            storeAssets(currentBuf);
-        } else if (currentBuf[0] === 5) {
-            let a = String(currentBuf[1]);
-            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+        } else if (_currentBuf[0] == 1) {
+            storeAssets(_currentBuf);
+        } else if (_currentBuf[0] == 4) {
+            const stateSignal = _currentBuf[1];
+            if (stateSignal === StateSignals.STOP_RECORDING_AUDIO && state.recording) {
+                state.recording = false;
+                killMic();
+            } else if (stateSignal === StateSignals.START_RECORDING_AUDIO && !state.recording) {
+                state.recording = true;
+                listenToAudio(100, (chunk) => {
+                    if (!chunk) {
+                        return
+                    }
+                    socketWorker.postMessage(JSON.stringify({
+                        type: 'stream',
+                        input: new Uint8Array(chunk)
+                    }));
+                });
+            }
+        } else if (_currentBuf[0] === 5) {
+            let a = String(_currentBuf[1]);
+            let b = String(_currentBuf[2]).length > 1 ? _currentBuf[2] : "0" + _currentBuf[2];
             let newPort = a + b;
 
             socketWorker.postMessage({
@@ -117,9 +136,15 @@ socketWorker.onmessage = (socketMessage) => {
                 }
             });
 
-        } else if (currentBuf[0] == 3 && !rendering) {
-            rendering = true;
-            req();
+        } else if (_currentBuf[0] == 3) {// && !rendering) {
+
+            //console.log('rendering');
+            currentBuf = _currentBuf;
+
+            if (!initializedRender) {
+                initializedRender = true;
+                req();
+            }
         }
     }
 };
@@ -251,6 +276,7 @@ const unsquishSize = (squishedSize) => {
 };
 
 function renderBuf(buf) {
+    //console.log('rendndndndn');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
     thingIndices = [];
@@ -272,26 +298,7 @@ function renderBuf(buf) {
         let bufIndex = i + 9;
         let thing = unsquish(buf.slice(i, i + frameSize));
 
-        if (thing.stateSignal) {
-            if (thing.stateSignal === StateSignals.STOP_RECORDING_AUDIO && state.recording) {
-                state.recording = false;
-                killMic();
-            }
-            if (thing.stateSignal === StateSignals.START_RECORDING_AUDIO && !state.recording) {
-                state.recording = true;
-                listenToAudio(500, (chunk) => {
-                    if (!chunk) {
-                        return
-                    }
-                    socketWorker.postMessage(JSON.stringify({
-                        type: 'stream',
-                        input: new Uint8Array(chunk)
-                    }));
-                });
-            }
-        }
         if (!state.recording && thing.buf && (!playedSong || playedSong !== thing.id)) {
-            console.log('playing thing');
             playedSong = thing.id; 
             if (!audioCtx) {
                 return;
@@ -575,7 +582,7 @@ let clickStopper;
 
 function req() {
     if (!rendering) {
-        return;
+        rendering = true;
     }
 
     gamepads = navigator.getGamepads();
