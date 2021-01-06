@@ -581,9 +581,6 @@ const getActiveGamepads = (gamepads) => {
 let clickStopper;
 
 function req() {
-    if (!rendering) {
-        rendering = true;
-    }
 
     gamepads = navigator.getGamepads();
 
@@ -629,7 +626,7 @@ function req() {
             breakHold(holding);
         }
 
-        if (clickInfo.isClickable && mouseDown && !clickStopper) {    
+        if (clickInfo.isClickable && mouseDown) {// && !clickStopper) {    
             if (lastClick && lastClick.nodeId === clickInfo.nodeId) {
                 hold(clickInfo);
             } else {
@@ -637,9 +634,9 @@ function req() {
             }
 
             lastClick = clickInfo;
-            clickStopper = setTimeout(() => {
-                clickStopper = null;
-            }, 10);
+//            clickStopper = setTimeout(() => {
+//                clickStopper = null;
+//            }, 10);
         }
 
 
@@ -666,6 +663,7 @@ const hold = (clickInfo = {}) => {
     }
 
     if (!holding || holding.nodeId !== clickInfo.nodeId) {
+        console.log("SHFG");
         const x = mousePos[0];
         const y = mousePos[1];
         const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
@@ -694,6 +692,7 @@ const breakHold = () => {
 };
 
 const click = function(clickInfo = {}) {
+    console.log("I AM CLICKIN");
     if (!mousePos) {
         return;
     }
@@ -733,6 +732,7 @@ const click = function(clickInfo = {}) {
         }
     } else {
         if (clickX <= 100 && clickY <= 100) {
+            console.log('clickin');
             const payload = {type: "click",  data: {x: clickX, y: clickY}};
             socketWorker.postMessage(JSON.stringify(payload));
         }
