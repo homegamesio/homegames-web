@@ -25,24 +25,32 @@ const PATH_MAP = {
     }
 };
 
-http.createServer((req, res) => {
-    let requestPath = req.url;
+const server = () => {
 
-    const queryParamIndex = requestPath.indexOf("?");
+    http.createServer((req, res) => {
+        let requestPath = req.url;
+    
+        const queryParamIndex = requestPath.indexOf("?");
+    
+        if (queryParamIndex > 0) {
+            requestPath = requestPath.substring(0, queryParamIndex);
+        }
+    
+        const pathMapping = PATH_MAP[requestPath];
+    
+        if (pathMapping) {
+            res.statusCode = 200;
+            res.setHeader("Content-Type", pathMapping.contentType);
+            const payload = fs.readFileSync(path.join(__dirname, pathMapping.path));
+            res.end(payload);
+        } else {
+            res.statusCode = 404;
+            res.end();
+        }
+    }).listen(80);
 
-    if (queryParamIndex > 0) {
-        requestPath = requestPath.substring(0, queryParamIndex);
-    }
+};
 
-    const pathMapping = PATH_MAP[requestPath];
-
-    if (pathMapping) {
-        res.statusCode = 200;
-        res.setHeader("Content-Type", pathMapping.contentType);
-        const payload = fs.readFileSync(path.join(__dirname, pathMapping.path));
-        res.end(payload);
-    } else {
-        res.statusCode = 404;
-        res.end();
-    }
-}).listen(80);
+module.exports = {
+    server
+};

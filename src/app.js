@@ -264,16 +264,18 @@ function renderBuf(buf) {
                 const asset = thing.asset[assetKey];
                 let image;
 
-                if (imageCache[assetKey]) {
+                if (imageCache[assetKey] && imageCache[assetKey] !== 'loading') {
                     image = imageCache[assetKey];
                     image.width = asset.size.x / 100 * canvas.width;
                     image.height = asset.size.y / 100 * canvas.height;
                     ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                         (asset.pos.y / 100) * canvas.height, image.width, image.height);
-                } else {
+                } else if (!imageCache[assetKey]) {
                     image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
-                    imageCache[assetKey] = image;
+                    imageCache[assetKey] = 'loading';
                     image.onload = () => {
+                        imageCache[assetKey] = image;
+
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                             (asset.pos.y / 100) * canvas.height, image.width, image.height);
                     };
