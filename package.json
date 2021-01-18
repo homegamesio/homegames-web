@@ -36,7 +36,8 @@
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
     "assert": "^2.0.0",
-    "squishjs": "0.6.1"
+    "squishjs-latest": "npm:squishjs@0.6.3",
+    "squishjs-061": "npm:squishjs@0.6.1"
   },
   "devDependencies": {
     "webpack": "^5.13.0",

@@ -1,4 +1,5 @@
-let { squish, unsquish, Colors } = require('squishjs');
+let { squish, unsquish, Colors } = require('squishjs-latest');
+
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
