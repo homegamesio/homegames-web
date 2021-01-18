@@ -16,7 +16,6 @@
     ]
   },
   "scripts": {
-    "test": "npm run-script test",
     "build": "./node_modules/webpack-cli/bin/cli.js",
     "start": "node index.js",
     "watch": "webpack --watch"
