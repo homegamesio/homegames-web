@@ -1,4 +1,14 @@
-let { squish, unsquish, Colors } = require('squishjs');
+const squishMap = {
+    'latest': require('squish-latest'),
+    '0633': require('squish-0633'),
+    '0632': require('squish-0632'),
+    '0631': require('squish-0631'),
+    '063': require('squish-063'),
+    '061': require('squish-061')
+};
+
+let { squish, unsquish, Colors } = squishMap['latest'];
+
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
@@ -24,6 +34,13 @@ socketWorker.onmessage = (socketMessage) => {
             const aspectRatioX = currentBuf[2];
             const aspectRatioY = currentBuf[3];
             aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+
+            const squishVersionLength = currentBuf[4];
+            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(5, 5 + currentBuf[4]));
+            const squishVersion = squishMap[squishVersionString];
+            squish = squishVersion.squish;
+            unsquish = squishVersion.unsquish;
+            Colors = squishVersion.Colors;
             initCanvas();
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
