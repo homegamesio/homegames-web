@@ -1,6 +1,11 @@
 let socket;
-const initSocket = (hostname, port, playerId) => {
-    socket = new WebSocket("ws://" + hostname + ":" + port);
+
+const initSocket = (hostname, port, playerId, secure) => {
+    console.log("SECUREEEEE");
+    console.log(secure);
+    const wsProtocol = secure ? 'wss' : 'ws';
+
+    socket = new WebSocket(`${wsProtocol}://` + hostname + ":" + port);
 
     socket.binaryType = "arraybuffer";
 
@@ -32,7 +37,7 @@ const initSocket = (hostname, port, playerId) => {
 onmessage = (msg) => {
     if (msg.data.socketInfo) {
         socket && socket.close();
-        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId);
+        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure);
     } else {
         socket && socket.readyState == 1 && socket.send(msg.data);
     }

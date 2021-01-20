@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const fs = require('fs');
 const path = require('path');
 
@@ -25,9 +26,9 @@ const PATH_MAP = {
     }
 };
 
-const server = () => {
+const server = (certPath) => {
 
-    http.createServer((req, res) => {
+    const app = (req, res) => {
         let requestPath = req.url;
     
         const queryParamIndex = requestPath.indexOf("?");
@@ -47,7 +48,16 @@ const server = () => {
             res.statusCode = 404;
             res.end();
         }
-    }).listen(80);
+    };
+
+    if (certPath) {
+        https.createServer({
+            key: fs.readFileSync(certPath.keyPath).toString(),
+            cert: fs.readFileSync(certPath.certPath).toString()
+        }, app).listen(443);
+    } else {
+        http.createServer(app).listen(80);
+    }
 
 };
 
