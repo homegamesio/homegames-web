@@ -60,9 +60,15 @@ const CERT_PATH = getConfigValue('HG_CERT_PATH', `${process.cwd()}/.hg_certs`);
 if (HTTPS_ENABLED) {
     setTimeout(() => {
         console.log(`\n\nHTTPS is enabled! Verifying cert + key are available at ${CERT_PATH}`);
-        doLogin().then(info => {
+        getLoginInfo(`${AUTH_DIR}/tokens.json`).then((loginInfo) => {
             guaranteeCerts(`${AUTH_DIR}/tokens.json`, CERT_PATH).then(certPaths => {
                 server(certPaths);
+            });
+        }).catch(err => {
+            doLogin().then(info => {
+                guaranteeCerts(`${AUTH_DIR}/tokens.json`, CERT_PATH).then(certPaths => {
+                    server(certPaths);
+                });
             });
         });
     }, 1000);
