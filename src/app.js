@@ -53,7 +53,8 @@ socketWorker.onmessage = (socketMessage) => {
                 socketInfo: {
                     hostname: window.location.hostname,
                     playerId: window.playerId || null,
-                    port: Number(newPort)
+                    port: Number(newPort),
+                    secure: window.isSecureContext
                 }
             });
 
@@ -68,7 +69,8 @@ socketWorker.postMessage({
     socketInfo: {
         hostname: window.location.hostname,
         playerId: window.playerId || null,
-        port: 7000
+        port: 7000,
+        secure: window.isSecureContext
     }
 });
 
