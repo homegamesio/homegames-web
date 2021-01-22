@@ -52,9 +52,13 @@ const HTTPS_ENABLED = getConfigValue('HTTPS_ENABLED', false);
 if (HTTPS_ENABLED) {
     console.log(`\n\nHTTPS is enabled! Verifying cert + key are available at ${CERT_PATH}`);
     guaranteeDir(CERT_PATH).then(() => {
+        console.log('got cert dir');
         guaranteeDir(AUTH_DIR).then(() => {
+            console.log('got auth dir');
             authWorkflow(`${AUTH_DIR}/tokens.json`).then(authInfo => {
+                console.log('got auth info');
                 httpsInit().then(certPaths => {
+                    console.log('got cert. starting server');
                     server(certPaths);
                 }).catch(err => {
                     console.log('failed to initialize server with HTTPS');
