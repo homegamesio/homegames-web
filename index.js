@@ -49,7 +49,13 @@ const AUTH_DIR = getConfigValue('HG_AUTH_DIR', `${process.cwd()}/.hg_auth`);
 
 const HTTPS_ENABLED = getConfigValue('HTTPS_ENABLED', false);
 
-if (HTTPS_ENABLED) {
+if (process.env.BYPASS_CERT_CHECK) {
+    server({
+        certPath: process.env.HG_CERT_PATH,
+        keyPath: process.env.HG_KEY_PATH
+    })
+}
+else if (HTTPS_ENABLED) {
     console.log(`\n\nHTTPS is enabled! Verifying cert + key are available at ${CERT_PATH}`);
     guaranteeDir(CERT_PATH).then(() => {
         console.log('got cert dir');
