@@ -54,7 +54,7 @@ socketWorker.onmessage = (socketMessage) => {
                     hostname: window.location.hostname,
                     playerId: window.playerId || null,
                     port: Number(newPort),
-                    secure: window.isSecureContext
+                    secure: window.location.host !== 'localhost' && window.isSecureContext
                 }
             });
 
@@ -70,7 +70,7 @@ socketWorker.postMessage({
         hostname: window.location.hostname,
         playerId: window.playerId || null,
         port: 7000,
-        secure: window.isSecureContext
+        secure: window.location.host !== 'localhost' && window.isSecureContext
     }
 });
 
