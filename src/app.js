@@ -13,6 +13,7 @@ Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
 
+let playingSound;
 let currentBuf;
 
 let rendering = false;
@@ -54,7 +55,7 @@ socketWorker.onmessage = (socketMessage) => {
                     hostname: window.location.hostname,
                     playerId: window.playerId || null,
                     port: Number(newPort),
-                    secure: window.isSecureContext
+                    secure: window.location.host !== 'localhost' && window.isSecureContext
                 }
             });
 
@@ -70,7 +71,7 @@ socketWorker.postMessage({
         hostname: window.location.hostname,
         playerId: window.playerId || null,
         port: 7000,
-        secure: window.isSecureContext
+        secure: window.location.host !== 'localhost' && window.isSecureContext
     }
 });
 
@@ -271,12 +272,16 @@ function renderBuf(buf) {
             const assetKey = Object.keys(thing.asset)[0];
 
             if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                if (audioCtx && gameAssets[assetKey].decoded) {
+                if (!playingSound && audioCtx && gameAssets[assetKey].decoded) {
                     source = audioCtx.createBufferSource();
                     source.connect(audioCtx.destination);
                     source.buffer = gameAssets[assetKey].data;
+                    source.onended = () => {
+                        playingSound = false;
+                    }
                     source.start(0);
-                } else {
+                    playingSound = true;
+                } else if (!playingSound) {
                     console.warn("Cant play audio");
                 }
             } else {
@@ -598,6 +603,9 @@ const canClick = (x, y) => {
         const clickableIndexChunk = thingIndices[chunkIndex];
 
         let vertices = clickableIndexChunk[3];
+        if (!vertices[0]) {
+            continue;
+        }
         // TODO: fix this hack
         if (!vertices[0].length) {
             let verticesSwp = new Array(vertices.length / 2);
