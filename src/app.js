@@ -1,5 +1,6 @@
 const squishMap = {
     'latest': require('squish-latest'),
+    '064': require('squish-064'),
     '0633': require('squish-0633'),
     '0632': require('squish-0632'),
     '0631': require('squish-0631'),
@@ -7,7 +8,7 @@ const squishMap = {
     '061': require('squish-061')
 };
 
-let { squish, unsquish, Colors } = squishMap['latest'];
+let { squish, unsquish, Colors } = squishMap['064'];
 
 Colors = Colors.COLORS;
 
@@ -22,6 +23,8 @@ let aspectRatio;
 
 let mousePos;
 let clientWidth;
+
+let spectating;
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -46,6 +49,7 @@ socketWorker.onmessage = (socketMessage) => {
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
         } else if (currentBuf[0] === 5) {
+            spectating = false;
             let a = String(currentBuf[1]);
             let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
             let newPort = a + b;
@@ -56,6 +60,23 @@ socketWorker.onmessage = (socketMessage) => {
                     playerId: window.playerId || null,
                     port: Number(newPort),
                     secure: window.location.host !== 'localhost' && window.isSecureContext
+                }
+            });
+
+        } else if (currentBuf[0] === 6) {
+            spectating = true;
+            console.log(currentBuf);
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
+
+            socketWorker.postMessage({
+                socketInfo: {
+                    hostname: window.location.hostname,
+//                    playerId: window.playerId || null,
+                    port: Number(newPort),
+                    secure: window.location.host !== 'localhost' && window.isSecureContext,
+                    spectating
                 }
             });
 
@@ -257,7 +278,7 @@ function renderBuf(buf) {
 
         if (thing.text) {
             ctx.globalAlpha = thing.text.color[3] / 255;
-            ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
+            ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
             ctx.font = fontSize + "px sans-serif";
@@ -281,7 +302,7 @@ function renderBuf(buf) {
                     }
                     source.start(0);
                     playingSound = true;
-                } else if (!playingSound) {
+                } else if (!playingSound && audioCtx) {
                     console.warn("Cant play audio");
                 }
             } else {
@@ -292,6 +313,15 @@ function renderBuf(buf) {
                     image = imageCache[assetKey];
                     image.width = asset.size.x / 100 * canvas.width;
                     image.height = asset.size.y / 100 * canvas.height;
+                    if (thing.effects && thing.effects.shadow) {
+                        const shadowColor = thing.effects.shadow.color;
+                        ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                        if (thing.effects.shadow.blur) {
+                            ctx.shadowBlur = thing.effects.shadow.blur;
+                        }
+                    }
+
+
                     ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                         (asset.pos.y / 100) * canvas.height, image.width, image.height);
                 } else if (!imageCache[assetKey]) {
@@ -299,6 +329,13 @@ function renderBuf(buf) {
                     imageCache[assetKey] = 'loading';
                     image.onload = () => {
                         imageCache[assetKey] = image;
+                        if (thing.effects && thing.effects.shadow) {
+                            const shadowColor = thing.effects.shadow.color;
+                            ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                            if (thing.effects.shadow.blur) {
+                                ctx.shadowBlur = thing.effects.shadow.blur;
+                            }
+                        }
 
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                             (asset.pos.y / 100) * canvas.height, image.width, image.height);
@@ -595,7 +632,7 @@ const canClick = (x, y) => {
     let action = null;
     let nodeId = null;
 
-    if (x < canvas.offsetLeft - window.scrollLeft) {
+    if (spectating || x < canvas.offsetLeft - window.scrollLeft) {
         return false;
     }
 

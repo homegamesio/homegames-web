@@ -1,9 +1,10 @@
 let socket;
 
-const initSocket = (hostname, port, playerId, secure) => {
+const initSocket = (hostname, port, playerId, secure, spectating) => {
     console.log("SECUREEEEE");
     console.log(secure);
     const wsProtocol = secure ? 'wss' : 'ws';
+    console.log(spectating);
 
     socket = new WebSocket(`${wsProtocol}://` + hostname + ":" + port);
 
@@ -12,7 +13,8 @@ const initSocket = (hostname, port, playerId, secure) => {
     socket.onopen = () => {
         socket.send(JSON.stringify({
             type: "ready",
-            id: playerId
+            id: playerId,
+            spectating
         }));
     };
 
@@ -37,7 +39,7 @@ const initSocket = (hostname, port, playerId, secure) => {
 onmessage = (msg) => {
     if (msg.data.socketInfo) {
         socket && socket.close();
-        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure);
+        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure, msg.data.socketInfo.spectating);
     } else {
         socket && socket.readyState == 1 && socket.send(msg.data);
     }
