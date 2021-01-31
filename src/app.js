@@ -7,7 +7,9 @@ const squishMap = {
     '061': require('squish-061')
 };
 
-let { squish, unsquish, Colors } = squishMap['latest'];
+let { squish, unsquish, Colors } = squishMap['0633'];
+
+let bezelInfo;
 
 Colors = Colors.COLORS;
 
@@ -23,6 +25,8 @@ let aspectRatio;
 let mousePos;
 let clientWidth;
 
+let spectating;
+
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
         if (socketMessage.data.type === 'SOCKET_CLOSE') {
@@ -36,8 +40,10 @@ socketWorker.onmessage = (socketMessage) => {
             const aspectRatioY = currentBuf[3];
             aspectRatio = {x: aspectRatioX, y: aspectRatioY};
 
-            const squishVersionLength = currentBuf[4];
-            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(5, 5 + currentBuf[4]));
+            bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
+
+            const squishVersionLength = currentBuf[6];
+            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
             const squishVersion = squishMap[squishVersionString];
             squish = squishVersion.squish;
             unsquish = squishVersion.unsquish;
@@ -46,6 +52,7 @@ socketWorker.onmessage = (socketMessage) => {
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
         } else if (currentBuf[0] === 5) {
+            spectating = false;
             let a = String(currentBuf[1]);
             let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
             let newPort = a + b;
@@ -56,6 +63,22 @@ socketWorker.onmessage = (socketMessage) => {
                     playerId: window.playerId || null,
                     port: Number(newPort),
                     secure: window.location.host !== 'localhost' && window.isSecureContext
+                }
+            });
+
+        } else if (currentBuf[0] === 6) {
+            spectating = true;
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
+
+            socketWorker.postMessage({
+                socketInfo: {
+                    hostname: window.location.hostname,
+                    playerId: window.playerId || null,
+                    port: Number(newPort),
+                    secure: window.location.host !== 'localhost' && window.isSecureContext,
+                    spectating
                 }
             });
 
@@ -257,7 +280,7 @@ function renderBuf(buf) {
 
         if (thing.text) {
             ctx.globalAlpha = thing.text.color[3] / 255;
-            ctx.fillStyle = "rgba(" + thing.text.color[0] + "," + thing.text.color[1] + "," + thing.text.color[2] + "," + thing.text.color[3] + ")";
+            ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
             ctx.font = fontSize + "px sans-serif";
@@ -281,7 +304,7 @@ function renderBuf(buf) {
                     }
                     source.start(0);
                     playingSound = true;
-                } else if (!playingSound) {
+                } else if (!playingSound && audioCtx) {
                     console.warn("Cant play audio");
                 }
             } else {
@@ -292,6 +315,15 @@ function renderBuf(buf) {
                     image = imageCache[assetKey];
                     image.width = asset.size.x / 100 * canvas.width;
                     image.height = asset.size.y / 100 * canvas.height;
+                    if (thing.effects && thing.effects.shadow) {
+                        const shadowColor = thing.effects.shadow.color;
+                        ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                        if (thing.effects.shadow.blur) {
+                            ctx.shadowBlur = thing.effects.shadow.blur;
+                        }
+                    }
+
+
                     ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                         (asset.pos.y / 100) * canvas.height, image.width, image.height);
                 } else if (!imageCache[assetKey]) {
@@ -299,6 +331,13 @@ function renderBuf(buf) {
                     imageCache[assetKey] = 'loading';
                     image.onload = () => {
                         imageCache[assetKey] = image;
+                        if (thing.effects && thing.effects.shadow) {
+                            const shadowColor = thing.effects.shadow.color;
+                            ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                            if (thing.effects.shadow.blur) {
+                                ctx.shadowBlur = thing.effects.shadow.blur;
+                            }
+                        }
 
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                             (asset.pos.y / 100) * canvas.height, image.width, image.height);
@@ -596,6 +635,22 @@ const canClick = (x, y) => {
     let nodeId = null;
 
     if (x < canvas.offsetLeft - window.scrollLeft) {
+        return false;
+    }
+
+    const translatedX = x - canvas.offsetLeft - window.scrollX;
+    const translatedY = y - window.scrollY;
+
+    const xPercentage = 100 * translatedX / clientWidth;
+    const yPercentage = 100 * translatedY / clientHeight;
+
+    const bezelTop = bezelInfo.y / 2;
+    const bezelBottom = 100 - (bezelInfo.y / 2);
+
+    const bezelLeft = bezelInfo.x / 2;
+    const bezelRight = 100 - (bezelInfo.x / 2);
+
+    if ( spectating && (xPercentage > bezelLeft && xPercentage < bezelRight) && (yPercentage > bezelTop && yPercentage < bezelBottom) ) {
         return false;
     }
 
