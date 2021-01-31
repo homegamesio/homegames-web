@@ -41,8 +41,7 @@
     "squish-0631": "npm:squishjs@0.6.31",
     "squish-0632": "npm:squishjs@0.6.32",
     "squish-0633": "npm:squishjs@0.6.33",
-    "squish-latest": "npm:squishjs@0.6.3",
-    "squish-064": "file:../squish"
+    "squish-latest": "npm:squishjs@0.6.3"
   },
   "devDependencies": {
     "webpack": "^5.13.0",
