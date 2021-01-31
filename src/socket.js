@@ -1,10 +1,7 @@
 let socket;
 
 const initSocket = (hostname, port, playerId, secure, spectating) => {
-    console.log("SECUREEEEE");
-    console.log(secure);
     const wsProtocol = secure ? 'wss' : 'ws';
-    console.log(spectating);
 
     socket = new WebSocket(`${wsProtocol}://` + hostname + ":" + port);
 

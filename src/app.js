@@ -10,6 +10,8 @@ const squishMap = {
 
 let { squish, unsquish, Colors } = squishMap['064'];
 
+let bezelInfo;
+
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
@@ -39,8 +41,10 @@ socketWorker.onmessage = (socketMessage) => {
             const aspectRatioY = currentBuf[3];
             aspectRatio = {x: aspectRatioX, y: aspectRatioY};
 
-            const squishVersionLength = currentBuf[4];
-            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(5, 5 + currentBuf[4]));
+            bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
+
+            const squishVersionLength = currentBuf[6];
+            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
             const squishVersion = squishMap[squishVersionString];
             squish = squishVersion.squish;
             unsquish = squishVersion.unsquish;
@@ -65,7 +69,6 @@ socketWorker.onmessage = (socketMessage) => {
 
         } else if (currentBuf[0] === 6) {
             spectating = true;
-            console.log(currentBuf);
             let a = String(currentBuf[1]);
             let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
             let newPort = a + b;
@@ -73,7 +76,7 @@ socketWorker.onmessage = (socketMessage) => {
             socketWorker.postMessage({
                 socketInfo: {
                     hostname: window.location.hostname,
-//                    playerId: window.playerId || null,
+                    playerId: window.playerId || null,
                     port: Number(newPort),
                     secure: window.location.host !== 'localhost' && window.isSecureContext,
                     spectating
@@ -632,7 +635,23 @@ const canClick = (x, y) => {
     let action = null;
     let nodeId = null;
 
-    if (spectating || x < canvas.offsetLeft - window.scrollLeft) {
+    if (x < canvas.offsetLeft - window.scrollLeft) {
+        return false;
+    }
+
+    const translatedX = x - canvas.offsetLeft - window.scrollX;
+    const translatedY = y - window.scrollY;
+
+    const xPercentage = 100 * translatedX / clientWidth;
+    const yPercentage = 100 * translatedY / clientHeight;
+
+    const bezelTop = bezelInfo.y / 2;
+    const bezelBottom = 100 - (bezelInfo.y / 2);
+
+    const bezelLeft = bezelInfo.x / 2;
+    const bezelRight = 100 - (bezelInfo.x / 2);
+
+    if ( spectating && (xPercentage > bezelLeft && xPercentage < bezelRight) && (yPercentage > bezelTop && yPercentage < bezelBottom) ) {
         return false;
     }
 
