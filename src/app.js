@@ -26,6 +26,10 @@ let mousePos;
 let clientWidth;
 
 let spectating;
+let performanceProfiling;
+let performanceData = [];
+
+const performanceDiv = document.getElementById('performance-data');
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -82,11 +86,22 @@ socketWorker.onmessage = (socketMessage) => {
                 }
             });
 
+        } else if (currentBuf[0] === 7) {
+            console.log('hello message 7');
+            performanceProfiling = true;
+            initPerformance();
         } else if (currentBuf[0] == 3 && !rendering) {
             rendering = true;
             req();
         }
     }
+};
+
+const initPerformance = () => {
+    if (!performanceProfiling) {
+        performanceProfiling = true;
+    }
+    performanceDiv.innerHTML = 'hello world';
 };
 
 socketWorker.postMessage({
@@ -550,6 +565,14 @@ function req() {
     }
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
+
+    if (performanceProfiling) {
+        const now = Date.now();
+
+        const diff = now - performanceData[performanceData.length - 1];
+        performanceDiv.innerHTML = `Last render: ${diff} ms ago`;
+        performanceData.push(now);
+    }
 
     window.requestAnimationFrame(req);
 }
