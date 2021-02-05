@@ -87,7 +87,6 @@ socketWorker.onmessage = (socketMessage) => {
             });
 
         } else if (currentBuf[0] === 7) {
-            console.log('hello message 7');
             performanceProfiling = true;
             initPerformance();
         } else if (currentBuf[0] == 3 && !rendering) {
@@ -250,6 +249,7 @@ function renderBuf(buf) {
                 thing.id,
                 thing.coordinates2d
             ];
+
             thingIndices.push(clickableChunk);
 
             if (thing.effects && thing.effects.shadow) {
@@ -681,7 +681,7 @@ const canClick = (x, y) => {
         const clickableIndexChunk = thingIndices[chunkIndex];
 
         let vertices = clickableIndexChunk[3];
-        if (!vertices[0]) {
+        if (!vertices || !vertices.length) {
             continue;
         }
         // TODO: fix this hack
@@ -698,18 +698,6 @@ const canClick = (x, y) => {
         let maxX = translateX(vertices[0][0]);
         let minY = translateY(vertices[0][1]);
         let maxY = translateY(vertices[0][1]);
-
-        if (vertices.length == 5 && false) {
-
-            const startX = vertices[0][0];// * canvas.width / 100;
-            const startY = vertices[0][1];// * canvas.height / 100;
-            ctx.fillStyle = 'rgba(255,0,0,255)';
-            ctx.fillRect(500, 500, 500, 500);
-//            ctx.fillRect(translateX(startX), translateY(startY), 1000, 1000);
-//            ctx.fillRect(textStartX * canvas.width / 100, thing.text.y * canvas.height / 100, textWidthPercent * canvas.width, textHeightPercent * canvas.height);
-
-
-        }
 
         for (let i = 1; i < vertices.length; i++) {
             const vert = vertices[i];
