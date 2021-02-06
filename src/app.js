@@ -89,6 +89,27 @@ socketWorker.onmessage = (socketMessage) => {
         } else if (currentBuf[0] === 7) {
             performanceProfiling = true;
             initPerformance();
+        } else if (currentBuf[0] === 8) { 
+            console.log('hotload info');
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
+
+            const hotClient = new WebSocket(`ws://localhost:${newPort}`);
+            hotClient.onopen = () => {
+                console.log('hot client opened');
+            }
+
+            hotClient.onerror = (err) => {
+                console.log('hot client err');
+                console.log(err);
+            }
+
+            hotClient.onmessage = (msg) => {
+                if (msg.data === 'reload') {
+                    location.reload();
+                }
+            }
         } else if (currentBuf[0] == 3 && !rendering) {
             rendering = true;
             req();
