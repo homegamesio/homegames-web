@@ -14,6 +14,7 @@ let bezelInfo;
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
+const canvas = document.getElementById("game");
 
 let playingSound;
 let currentBuf;
@@ -26,10 +27,52 @@ let mousePos;
 let clientWidth;
 
 let spectating;
+
+let hotClient;
+
 let performanceProfiling;
 let performanceData = [];
 
 const performanceDiv = document.getElementById('performance-data');
+
+const getClientInfo = () => {
+    // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
+    const userAgent = navigator.userAgent;
+
+    const info = {};
+    console.log('get client info');
+    console.log(userAgent);
+
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
+        info.deviceType = "tablet";
+    } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
+        info.deviceType = "mobile";
+    } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
+        info.deviceType = "tablet";
+    } else { 
+        info.deviceType = "desktop";
+    }
+
+    const _clientWidth = window.innerWidth;
+    const _clientHeight = window.innerHeight;
+
+    let aspectRatio = null;
+
+    if (_clientWidth && _clientHeight) {
+        aspectRatio = _clientWidth / _clientHeight;
+    }
+
+    info.aspectRatio = aspectRatio;
+
+    return info;
+};
+
+const sendClientInfo = () => {
+    const clientInfo = getClientInfo();
+    socketWorker.postMessage({
+        clientInfo
+    });
+};
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -55,6 +98,8 @@ socketWorker.onmessage = (socketMessage) => {
             initCanvas();
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
+        } else if (currentBuf[0] == 9) {
+            console.log('got a new game update just for me');
         } else if (currentBuf[0] === 5) {
             spectating = false;
             let a = String(currentBuf[1]);
@@ -90,24 +135,26 @@ socketWorker.onmessage = (socketMessage) => {
             performanceProfiling = true;
             initPerformance();
         } else if (currentBuf[0] === 8) { 
-            console.log('hotload info');
             let a = String(currentBuf[1]);
             let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
             let newPort = a + b;
 
-            const hotClient = new WebSocket(`ws://localhost:${newPort}`);
-            hotClient.onopen = () => {
-                console.log('hot client opened');
-            }
+            if (!hotClient) {
+                const hostname = window.location.hostname;
+                hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
+                hotClient.onopen = () => {
+                    console.log('hot client opened');
+                }
 
-            hotClient.onerror = (err) => {
-                console.log('hot client err');
-                console.log(err);
-            }
+                hotClient.onerror = (err) => {
+                    console.log('hot client err');
+                    console.log(err);
+                }
 
-            hotClient.onmessage = (msg) => {
-                if (msg.data === 'reload') {
-                    location.reload();
+                hotClient.onmessage = (msg) => {
+                    if (msg.data === 'reload') {
+                        location.reload();
+                    }
                 }
             }
         } else if (currentBuf[0] == 3 && !rendering) {
@@ -133,6 +180,8 @@ socketWorker.postMessage({
     }
 });
 
+sendClientInfo();
+
 let gamepad;
 let moving;
 
@@ -146,7 +195,6 @@ let audioCtx, source;
 const gameAssets = {};
 const imageCache = {};
 
-const canvas = document.getElementById("game");
 const gameDiv = document.getElementById('homegames-main');
 const divColor = Colors.BLACK;
 gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]}, ${divColor[3]})`; 
@@ -841,4 +889,5 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('resize', () => {
     initCanvas(window.gameWidth, window.gameHeight);
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
+    sendClientInfo();
 });

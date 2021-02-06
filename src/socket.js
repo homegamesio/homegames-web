@@ -1,4 +1,6 @@
 let socket;
+let clientInfo;
+let sentClientInfo;
 
 const initSocket = (hostname, port, playerId, secure, spectating) => {
     const wsProtocol = secure ? 'wss' : 'ws';
@@ -11,6 +13,7 @@ const initSocket = (hostname, port, playerId, secure, spectating) => {
         socket.send(JSON.stringify({
             type: "ready",
             id: playerId,
+            clientInfo,
             spectating
         }));
     };
@@ -27,6 +30,10 @@ const initSocket = (hostname, port, playerId, secure, spectating) => {
     };
 
     socket.onmessage = function(msg) {
+        if (!sentClientInfo) {
+            clientInfo && socket.send(JSON.stringify(clientInfo));
+            sentClientInfo = true;
+        }
         postMessage(msg.data);
     };
 
@@ -37,6 +44,11 @@ onmessage = (msg) => {
     if (msg.data.socketInfo) {
         socket && socket.close();
         initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure, msg.data.socketInfo.spectating);
+    } else if (msg.data.clientInfo) {
+        clientInfo = msg.data;
+        if (socket && socket.readyState == 1) { 
+            socket.send(JSON.stringify(clientInfo));
+        }
     } else {
         socket && socket.readyState == 1 && socket.send(msg.data);
     }
