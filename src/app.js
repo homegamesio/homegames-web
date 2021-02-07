@@ -40,8 +40,6 @@ const getClientInfo = () => {
     const userAgent = navigator.userAgent;
 
     const info = {};
-    console.log('get client info');
-    console.log(userAgent);
 
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
         info.deviceType = "tablet";
@@ -132,7 +130,6 @@ socketWorker.onmessage = (socketMessage) => {
             });
 
         } else if (currentBuf[0] === 7) {
-            performanceProfiling = true;
             initPerformance();
         } else if (currentBuf[0] === 8) { 
             let a = String(currentBuf[1]);
@@ -164,11 +161,31 @@ socketWorker.onmessage = (socketMessage) => {
     }
 };
 
+const avgGraph = document.createElement('canvas');
+const lastNGraph = document.createElement('canvas');
+
+const avgGraphLabel = document.createElement('h3');
+const lastNGraphLabel = document.createElement('h3');
+
 const initPerformance = () => {
     if (!performanceProfiling) {
         performanceProfiling = true;
+
+        const div1 = document.createElement('div');
+        const div2 = document.createElement('div');
+
+        div1.style = 'float: left; margin-right: 50px';
+        div2.style = 'float: left';
+
+        div1.appendChild(avgGraph);
+        div2.appendChild(lastNGraph);
+
+        performanceDiv.appendChild(div1);
+        div1.appendChild(avgGraphLabel);
+
+        performanceDiv.appendChild(div2);
+        div2.appendChild(lastNGraphLabel);
     }
-    performanceDiv.innerHTML = 'hello world';
 };
 
 socketWorker.postMessage({
@@ -580,6 +597,10 @@ function req() {
         return;
     }
 
+    if (performanceProfiling) { 
+        performanceData.push({start: Date.now()});
+    }
+
     gamepads = navigator.getGamepads();
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
@@ -636,15 +657,71 @@ function req() {
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
     if (performanceProfiling) {
-        const now = Date.now();
-
-        const diff = now - performanceData[performanceData.length - 1];
-        performanceDiv.innerHTML = `Last render: ${diff} ms ago`;
-        performanceData.push(now);
+        const currentRender = performanceData[performanceData.length - 1];
+        currentRender.end = Date.now();
+        const renderTime = currentRender.end - currentRender.start;
+//        performanceDiv.innerHTML = `Last render: ${renderTime}ms`;
+        if (performanceData.length % 60 === 0) {
+            updatePerfGraphs();
+        }
     }
 
     window.requestAnimationFrame(req);
 }
+
+let graphData = [];
+
+const updatePerfGraphs = () => {
+    const startFrame = performanceData.length - 60; //performanceData[performanceData.length - 60];
+    const endFrame = performanceData.length - 1;//performanceData[performanceData.length - 1];
+    let sum = 0;
+    for (let i = startFrame; i <= endFrame; i++) {
+        sum += (performanceData[i].end - performanceData[i].start);
+    }
+    const avgRenderTime = sum / 60;
+    const lastNFrames = performanceData[endFrame].end - performanceData[startFrame].start;
+
+    graphData.push({
+        avgRenderTime,
+        lastNFrames
+    });
+
+    const makeDot = (_canvas, _ctx, x, y) => {
+        const maxY = _canvas.height;
+        const maxX = _canvas.width;
+        const _x = 5 + ((x / 100) * maxX);
+        const _y = (y / 100) * maxY;
+        _ctx.fillRect(_x, _y, 5, 5);
+    }
+
+    const avgGraphCtx = avgGraph.getContext("2d", {alpha: false});
+    const lastNGraphCtx = lastNGraph.getContext("2d", {alpha: false});
+
+    avgGraphCtx.clearRect(0, 0, avgGraph.width, avgGraph.height);
+    lastNGraphCtx.clearRect(0, 0, lastNGraph.width, lastNGraph.height);
+
+    avgGraphCtx.fillStyle = 'rgba(226, 114, 91, 255)';
+    lastNGraphCtx.fillStyle = 'rgba(255, 192, 203, 255)';
+
+    avgGraphCtx.fillRect(0, 0, avgGraph.width, avgGraph.height);
+    lastNGraphCtx.fillRect(0, 0, lastNGraph.width, lastNGraph.height);
+
+    avgGraphCtx.fillStyle = "rgba(255, 0, 0, 255)";
+    lastNGraphCtx.fillStyle = "rgba(0, 255, 0, 255)";
+
+    if (graphData.length > 10) {
+        graphData = graphData.slice(graphData.length - 10, graphData.length);
+    }
+    
+    avgGraphLabel.innerHTML = avgRenderTime.toFixed(2) + ' ms/render';
+    lastNGraphLabel.innerHTML = Math.floor(1000 / (lastNFrames / 60)) + ' fps';
+
+    for (let i = 0; i < graphData.length; i++) {
+        const fps = 1000 / (graphData[i].lastNFrames / 60);
+        makeDot(avgGraph, avgGraphCtx, i * 10, 100 - (10 * (graphData[i].avgRenderTime)));
+        makeDot(lastNGraph, lastNGraphCtx, i * 10, 100 - (fps));
+    }
+};
 
 const click = function(clickInfo = {}) {
     if (!mousePos) {
