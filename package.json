@@ -1,6 +1,6 @@
 {
   "name": "homegames-web",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Play games at home- the web package",
   "directories": {
     "lib": "lib"
@@ -35,7 +35,7 @@
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
     "assert": "^2.0.0",
-    "homegames-common": "0.1.33",
+    "homegames-common": "0.1.34",
     "squish-061": "npm:squishjs@0.6.1",
     "squish-063": "npm:squishjs@0.6.3",
     "squish-0631": "npm:squishjs@0.6.31",
