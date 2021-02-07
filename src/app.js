@@ -97,7 +97,9 @@ socketWorker.onmessage = (socketMessage) => {
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
         } else if (currentBuf[0] == 9) {
-            console.log('got a new game update just for me');
+            // for now i know its just aspectRatio
+            aspectRatio = {x: currentBuf[1], y: currentBuf[2]};
+            initCanvas();
         } else if (currentBuf[0] === 5) {
             spectating = false;
             let a = String(currentBuf[1]);
