@@ -14,6 +14,7 @@ let bezelInfo;
 Colors = Colors.COLORS;
 
 const socketWorker = new Worker('socket.js');
+const canvas = document.getElementById("game");
 
 let playingSound;
 let currentBuf;
@@ -26,6 +27,50 @@ let mousePos;
 let clientWidth;
 
 let spectating;
+
+let hotClient;
+
+let performanceProfiling;
+let performanceData = [];
+
+const performanceDiv = document.getElementById('performance-data');
+
+const getClientInfo = () => {
+    // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
+    const userAgent = navigator.userAgent;
+
+    const info = {};
+
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
+        info.deviceType = "tablet";
+    } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
+        info.deviceType = "mobile";
+    } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
+        info.deviceType = "tablet";
+    } else { 
+        info.deviceType = "desktop";
+    }
+
+    const _clientWidth = window.innerWidth;
+    const _clientHeight = window.innerHeight;
+
+    let aspectRatio = null;
+
+    if (_clientWidth && _clientHeight) {
+        aspectRatio = _clientWidth / _clientHeight;
+    }
+
+    info.aspectRatio = aspectRatio;
+
+    return info;
+};
+
+const sendClientInfo = () => {
+    const clientInfo = getClientInfo();
+    socketWorker.postMessage({
+        clientInfo
+    });
+};
 
 socketWorker.onmessage = (socketMessage) => {
     if (socketMessage.data.constructor === Object) {
@@ -51,6 +96,10 @@ socketWorker.onmessage = (socketMessage) => {
             initCanvas();
         } else if (currentBuf[0] == 1) {
             storeAssets(currentBuf);
+        } else if (currentBuf[0] == 9) {
+            // for now i know its just aspectRatio
+            aspectRatio = {x: currentBuf[1], y: currentBuf[2]};
+            initCanvas();
         } else if (currentBuf[0] === 5) {
             spectating = false;
             let a = String(currentBuf[1]);
@@ -82,10 +131,62 @@ socketWorker.onmessage = (socketMessage) => {
                 }
             });
 
+        } else if (currentBuf[0] === 7) {
+            initPerformance();
+        } else if (currentBuf[0] === 8) { 
+            let a = String(currentBuf[1]);
+            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+            let newPort = a + b;
+
+            if (!hotClient) {
+                const hostname = window.location.hostname;
+                hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
+                hotClient.onopen = () => {
+                    console.log('hot client opened');
+                }
+
+                hotClient.onerror = (err) => {
+                    console.log('hot client err');
+                    console.log(err);
+                }
+
+                hotClient.onmessage = (msg) => {
+                    if (msg.data === 'reload') {
+                        location.reload();
+                    }
+                }
+            }
         } else if (currentBuf[0] == 3 && !rendering) {
             rendering = true;
             req();
         }
+    }
+};
+
+const avgGraph = document.createElement('canvas');
+const lastNGraph = document.createElement('canvas');
+
+const avgGraphLabel = document.createElement('h3');
+const lastNGraphLabel = document.createElement('h3');
+
+const initPerformance = () => {
+    if (!performanceProfiling) {
+        performanceProfiling = true;
+
+        const div1 = document.createElement('div');
+        const div2 = document.createElement('div');
+
+        div1.style = 'float: left; margin-right: 50px';
+        div2.style = 'float: left';
+
+        div1.appendChild(avgGraph);
+        div2.appendChild(lastNGraph);
+
+        performanceDiv.appendChild(div1);
+        div1.appendChild(avgGraphLabel);
+
+        performanceDiv.appendChild(div2);
+        div2.appendChild(lastNGraphLabel);
     }
 };
 
@@ -97,6 +198,8 @@ socketWorker.postMessage({
         secure: window.location.host !== 'localhost' && window.isSecureContext
     }
 });
+
+sendClientInfo();
 
 let gamepad;
 let moving;
@@ -111,7 +214,6 @@ let audioCtx, source;
 const gameAssets = {};
 const imageCache = {};
 
-const canvas = document.getElementById("game");
 const gameDiv = document.getElementById('homegames-main');
 const divColor = Colors.BLACK;
 gameDiv.style.background = `rgba(${divColor[0]}, ${divColor[1]}, ${divColor[2]}, ${divColor[3]})`; 
@@ -235,6 +337,7 @@ function renderBuf(buf) {
                 thing.id,
                 thing.coordinates2d
             ];
+
             thingIndices.push(clickableChunk);
 
             if (thing.effects && thing.effects.shadow) {
@@ -496,6 +599,10 @@ function req() {
         return;
     }
 
+    if (performanceProfiling) { 
+        performanceData.push({start: Date.now()});
+    }
+
     gamepads = navigator.getGamepads();
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
@@ -551,8 +658,72 @@ function req() {
 
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
 
+    if (performanceProfiling) {
+        const currentRender = performanceData[performanceData.length - 1];
+        currentRender.end = Date.now();
+        const renderTime = currentRender.end - currentRender.start;
+//        performanceDiv.innerHTML = `Last render: ${renderTime}ms`;
+        if (performanceData.length % 60 === 0) {
+            updatePerfGraphs();
+        }
+    }
+
     window.requestAnimationFrame(req);
 }
+
+let graphData = [];
+
+const updatePerfGraphs = () => {
+    const startFrame = performanceData.length - 60; //performanceData[performanceData.length - 60];
+    const endFrame = performanceData.length - 1;//performanceData[performanceData.length - 1];
+    let sum = 0;
+    for (let i = startFrame; i <= endFrame; i++) {
+        sum += (performanceData[i].end - performanceData[i].start);
+    }
+    const avgRenderTime = sum / 60;
+    const lastNFrames = performanceData[endFrame].end - performanceData[startFrame].start;
+
+    graphData.push({
+        avgRenderTime,
+        lastNFrames
+    });
+
+    const makeDot = (_canvas, _ctx, x, y) => {
+        const maxY = _canvas.height;
+        const maxX = _canvas.width;
+        const _x = 5 + ((x / 100) * maxX);
+        const _y = (y / 100) * maxY;
+        _ctx.fillRect(_x, _y, 5, 5);
+    }
+
+    const avgGraphCtx = avgGraph.getContext("2d", {alpha: false});
+    const lastNGraphCtx = lastNGraph.getContext("2d", {alpha: false});
+
+    avgGraphCtx.clearRect(0, 0, avgGraph.width, avgGraph.height);
+    lastNGraphCtx.clearRect(0, 0, lastNGraph.width, lastNGraph.height);
+
+    avgGraphCtx.fillStyle = 'rgba(226, 114, 91, 255)';
+    lastNGraphCtx.fillStyle = 'rgba(255, 192, 203, 255)';
+
+    avgGraphCtx.fillRect(0, 0, avgGraph.width, avgGraph.height);
+    lastNGraphCtx.fillRect(0, 0, lastNGraph.width, lastNGraph.height);
+
+    avgGraphCtx.fillStyle = "rgba(255, 0, 0, 255)";
+    lastNGraphCtx.fillStyle = "rgba(0, 255, 0, 255)";
+
+    if (graphData.length > 10) {
+        graphData = graphData.slice(graphData.length - 10, graphData.length);
+    }
+    
+    avgGraphLabel.innerHTML = avgRenderTime.toFixed(2) + ' ms/render';
+    lastNGraphLabel.innerHTML = Math.floor(1000 / (lastNFrames / 60)) + ' fps';
+
+    for (let i = 0; i < graphData.length; i++) {
+        const fps = 1000 / (graphData[i].lastNFrames / 60);
+        makeDot(avgGraph, avgGraphCtx, i * 10, 100 - (10 * (graphData[i].avgRenderTime)));
+        makeDot(lastNGraph, lastNGraphCtx, i * 10, 100 - (fps));
+    }
+};
 
 const click = function(clickInfo = {}) {
     if (!mousePos) {
@@ -658,7 +829,7 @@ const canClick = (x, y) => {
         const clickableIndexChunk = thingIndices[chunkIndex];
 
         let vertices = clickableIndexChunk[3];
-        if (!vertices[0]) {
+        if (!vertices || !vertices.length) {
             continue;
         }
         // TODO: fix this hack
@@ -675,18 +846,6 @@ const canClick = (x, y) => {
         let maxX = translateX(vertices[0][0]);
         let minY = translateY(vertices[0][1]);
         let maxY = translateY(vertices[0][1]);
-
-        if (vertices.length == 5 && false) {
-
-            const startX = vertices[0][0];// * canvas.width / 100;
-            const startY = vertices[0][1];// * canvas.height / 100;
-            ctx.fillStyle = 'rgba(255,0,0,255)';
-            ctx.fillRect(500, 500, 500, 500);
-//            ctx.fillRect(translateX(startX), translateY(startY), 1000, 1000);
-//            ctx.fillRect(textStartX * canvas.width / 100, thing.text.y * canvas.height / 100, textWidthPercent * canvas.width, textHeightPercent * canvas.height);
-
-
-        }
 
         for (let i = 1; i < vertices.length; i++) {
             const vert = vertices[i];
@@ -809,4 +968,5 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('resize', () => {
     initCanvas(window.gameWidth, window.gameHeight);
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
+    sendClientInfo();
 });
