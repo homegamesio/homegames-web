@@ -67,9 +67,22 @@ const getClientInfo = () => {
 
 const sendClientInfo = () => {
     const clientInfo = getClientInfo();
-    socketWorker.postMessage({
+    const initData = {
         clientInfo
-    });
+    }
+    
+    // init with a specific game if the url contains a game parameter
+    const gameRegex = new RegExp('\\?game=(\\S*)');
+    console.log('lookin');
+    if (window.location.search.match(gameRegex)) {
+        const gameId = gameRegex.exec(window.location.search)[1];
+        console.log('using game id ' + gameId);
+        if (gameId) {
+            initData.requestedGameId = gameId;
+        }
+    }
+
+    socketWorker.postMessage(initData);
 };
 
 socketWorker.onmessage = (socketMessage) => {
@@ -970,3 +983,5 @@ window.addEventListener('resize', () => {
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
     sendClientInfo();
 });
+
+
