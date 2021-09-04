@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "./node_modules/webpack/bin/webpack.js",
+    "build-tester": "./node_modules/webpack/bin/webpack.js -c ./tester.config.js",
     "start": "node index.js",
     "develop": "node index.js& ./node_modules/webpack/bin/webpack.js --watch"
   },
@@ -42,7 +43,8 @@
     "squish-0632": "npm:squishjs@0.6.32",
     "squish-0633": "npm:squishjs@0.6.33",
     "squish-0642": "npm:squishjs@0.6.42",
-    "squish-latest": "npm:squishjs@0.6.42"
+    "squish-latest": "npm:squishjs@0.6.42",
+    "squishjs": "file:../squish"
   },
   "devDependencies": {
     "webpack": "^5.13.0",
