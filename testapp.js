@@ -1,5 +1,3 @@
-console.log('ytoooo');
-
 const { squish, unsquish } = require('squishjs');
 
 const canvas = document.getElementById('tester-canvas');
@@ -19,36 +17,12 @@ const scaleCoordinate = ({ x, y }) => {
 
 let thingToRender = [
   [
-     3, 36,  2, 43, 3,   0, 44, 2,  52,
-    22,  5,  0,  5, 0,  95,  0, 5,   0,
-    95,  0, 95,  0, 5,   0, 95, 0,   5,
-     0,  5,  0, 53, 6, 255,  0, 0, 255
-  ],
-  [
-     3, 36,  2, 43, 3,  1, 44,   2,  52,
-    22,  5,  0,  5, 0, 50,  0,   5,   0,
-    50,  0, 50,  0, 5,  0, 50,   0,   5,
-     0,  5,  0, 53, 6,  0,  0, 255, 255
-  ],
-  [
-     3, 36,  2, 43,  3,  2,  44, 2,  52,
-    22, 50,  0,  5,  0, 95,   0, 5,   0,
-    95,  0, 50,  0, 50,  0,  50, 0,  50,
-     0,  5,  0, 53,  6,  0, 255, 0, 255
-  ],
-  [
-     3, 36,  2, 43,  3,  3, 44,  2,  52,
-    22, 50,  0, 50,  0, 95,  0, 50,   0,
-    95,  0, 95,  0, 50,  0, 95,  0,  50,
-     0, 50,  0, 53,  6,  0,  0,  0, 255
-  ],
-  [
-     3, 36,  2, 43, 3,   4,  44,   2,  52,
-    22,  5,  0, 50, 0,  50,   0,  50,   0,
-    50,  0, 95,  0, 5,   0,  95,   0,   5,
-     0, 50,  0, 53, 6, 255, 255, 255, 255
+     3, 25,   2,  43,   3,  12, 44, 2,
+    52,  8,  50,   0,  50,   0, 49, 0,
+    53,  6, 255, 192, 203, 255, 55, 3,
+     4
   ]
-];
+]; 
 
 const drawMarker = ({ x, y, horizontal }) => {
     const { scaledX, scaledY } = scaleCoordinate({ x, y });
@@ -104,31 +78,56 @@ const drawMarkers = () => {
 
 };
 
+const degreesToRadians = (degrees) => {
+    return (degrees * Math.PI) / 180;
+};
+
 const drawThing = () => {
     thingToRender.forEach(thing => {
         const unsquished = unsquish(thing);
-        const nodeCoordinates = unsquished.node.coordinates2d;
-        const fill = unsquished.node.fill;
+        console.log('drawing');
+        console.log(unsquished);
+        // circle
+        if (unsquished.node.subType == 4) {
+            console.log('need me to draw circle');
+            const diagonalLength = Math.sqrt( Math.pow(canvas.height, 2) + Math.pow(canvas.width, 2) );
+            console.log(diagonalLength);
+            const circleInstructions = unsquished.node.coordinates2d;
+            const radiusLength = (circleInstructions[2] / 100) * diagonalLength;
+            console.log(circleInstructions);
+            ctx.beginPath();
+            const { scaledX, scaledY } = scaleCoordinate({x: circleInstructions[0], y: circleInstructions[1] });
+            console.log(scaledX);
+            console.log(scaledY);
+            ctx.arc(scaledX, scaledY, radiusLength, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(0, 255, 0, 255)';
+            ctx.stroke();
+            ctx.fill();
 
-        if (fill) {
-            ctx.fillStyle = `rgba(${fill[0]}, ${fill[1]}, ${fill[2]}, ${fill[3]})`;
         } else {
-            ctx.fillStyle = 'none';
+            const nodeCoordinates = unsquished.node.coordinates2d;
+            const fill = unsquished.node.fill;
+
+            if (fill) {
+                ctx.fillStyle = `rgba(${fill[0]}, ${fill[1]}, ${fill[2]}, ${fill[3]})`;
+            } else {
+                ctx.fillStyle = 'none';
+            }
+            ctx.beginPath();
+            
+            const startPoint = [nodeCoordinates[0], nodeCoordinates[1]];
+
+            const scaledStartPoint = scaleCoordinate({x: startPoint[0], y: startPoint[1]});
+            ctx.moveTo(scaledStartPoint.scaledX, scaledStartPoint.scaledY);
+
+            for (let i = 2; i < nodeCoordinates.length; i+=2) {
+                const currentPoint = [nodeCoordinates[i], nodeCoordinates[i + 1]];
+                const { scaledX, scaledY } = scaleCoordinate({ x: currentPoint[0], y: currentPoint[1] });
+                ctx.lineTo(scaledX, scaledY);
+            }
+
+            ctx.fill();
         }
-        ctx.beginPath();
-        
-        const startPoint = [nodeCoordinates[0], nodeCoordinates[1]];
-
-        const scaledStartPoint = scaleCoordinate({x: startPoint[0], y: startPoint[1]});
-        ctx.moveTo(scaledStartPoint.scaledX, scaledStartPoint.scaledY);
-
-        for (let i = 2; i < nodeCoordinates.length; i+=2) {
-            const currentPoint = [nodeCoordinates[i], nodeCoordinates[i + 1]];
-            const { scaledX, scaledY } = scaleCoordinate({ x: currentPoint[0], y: currentPoint[1] });
-            ctx.lineTo(scaledX, scaledY);
-        }
-
-        ctx.fill();
     });
 };
 
