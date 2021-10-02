@@ -8,7 +8,7 @@ const squishMap = {
     '061': require('squish-061')
 };
 
-let { squish, unsquish, Colors } = squishMap['0633'];
+let { squish, unsquish, Colors } = require('squishjs');//squishMap['0633'];
 
 let bezelInfo;
 
@@ -74,7 +74,6 @@ const sendClientInfo = () => {
     
     // init with a specific game if the url contains a game parameter
     const gameRegex = new RegExp('\\?game=(\\S*)');
-    console.log('lookin');
     if (window.location.search.match(gameRegex)) {
         const gameId = gameRegex.exec(window.location.search)[1];
         console.log('using game id ' + gameId);
@@ -103,12 +102,14 @@ socketWorker.onmessage = (socketMessage) => {
 
             const squishVersionLength = currentBuf[6];
             const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
-            const squishVersion = squishMap[squishVersionString];
-            squish = squishVersion.squish;
-            unsquish = squishVersion.unsquish;
-            Colors = squishVersion.Colors;
+//            const squishVersion = squishMap[squishVersionString];
+//            squish = squishVersion.squish;
+//            unsquish = squishVersion.unsquish;
+//            Colors = squishVersion.Colors;
             initCanvas();
         } else if (currentBuf[0] == 1) {
+            console.log("STORING ASSETSSSSS");
+            console.log(currentBuf);
             storeAssets(currentBuf);
         } else if (currentBuf[0] == 9) {
             // for now i know its just aspectRatio
@@ -318,7 +319,7 @@ function renderBuf(buf) {
         const frameSize = buf[i + 1];
 
         let bufIndex = i + 2;
-        let thing = unsquish(buf.slice(i, i + frameSize));
+        let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
         if (!thing.coordinates2d && thing.input && thing.text) {
             const maxTextSize = Math.floor(canvas.width);
@@ -376,9 +377,11 @@ function renderBuf(buf) {
             if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
                 ctx.beginPath();
                 
-                ctx.moveTo(thing.coordinates2d[0] * canvas.width / 100, thing.coordinates2d[1] * canvas.height / 100);
-                for (let i = 2; i < thing.coordinates2d.length; i+=2) {
-                    ctx.lineTo(canvas.width / 100 * thing.coordinates2d[i], thing.coordinates2d[i+1] * canvas.height / 100);
+                const firstPoint = thing.coordinates2d[0];
+                ctx.moveTo(firstPoint[0] * canvas.width / 100, firstPoint[1] * canvas.height / 100);
+                for (let i = 1; i < thing.coordinates2d.length; i++) {
+                    const curPoint = thing.coordinates2d[i];
+                    ctx.lineTo(canvas.width / 100 * curPoint[0], curPoint[1] * canvas.height / 100);
                 }
     
                 if (thing.fill !== undefined && thing.fill !== null) {
