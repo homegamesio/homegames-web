@@ -209,7 +209,7 @@ socketWorker.postMessage({
     socketInfo: {
         hostname: window.location.hostname,
         playerId: window.playerId || null,
-        port: 7000,
+        port: 7001,
         secure: window.location.host !== 'localhost' && window.isSecureContext
     }
 });
