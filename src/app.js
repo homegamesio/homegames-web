@@ -66,14 +66,14 @@ const sendClientInfo = () => {
         clientInfo
     }
     
+    const searchParams = new URLSearchParams(window.location.search);
     // init with a specific game if the url contains a game parameter
-    const gameRegex = new RegExp('\\?game=(\\S*)');
-    if (window.location.search.match(gameRegex)) {
-        const gameId = gameRegex.exec(window.location.search)[1];
-        console.log('using game id ' + gameId);
-        if (gameId) {
-            initData.requestedGameId = gameId;
-        }
+    if (searchParams.get('gameId') && searchParams.get('versionId')) {
+        const gameId = searchParams.get('gameId');
+        const versionId = searchParams.get('versionId');
+
+        console.log('using game id ' + gameId + ' and version ' + versionId);
+        initData.requestedGame = {gameId, versionId};
     }
 
     socketWorker.postMessage(initData);
