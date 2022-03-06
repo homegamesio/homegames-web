@@ -36,14 +36,7 @@
   "dependencies": {
     "assert": "^2.0.0",
     "homegames-common": "0.1.5",
-    "squish-061": "file:../squish",
-    "squish-063": "file:../squish",
-    "squish-0631": "file:../squish",
-    "squish-0632": "file:../squish",
-    "squish-0633": "file:../squish",
-    "squish-0642": "file:../squish",
-    "squish-latest": "file:../squish",
-    "squishjs": "file:../squish"
+    "squish-0710": "npm:squishjs@0.7.1"
   },
   "devDependencies": {
     "webpack": "^5.65.0",
