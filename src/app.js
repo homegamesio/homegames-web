@@ -11,7 +11,7 @@ Colors = Colors.COLORS;
 const socketWorker = new Worker('socket.js');
 const canvas = document.getElementById("game");
 
-let playingSound;
+const playingSounds = {};
 let currentBuf;
 
 let rendering = false;
@@ -71,8 +71,8 @@ const sendClientInfo = () => {
     if (searchParams.get('gameId') && searchParams.get('versionId')) {
         const gameId = searchParams.get('gameId');
         const versionId = searchParams.get('versionId');
-
-        console.log('using game id ' + gameId + ' and version ' + versionId);
+        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+        window.history.pushState({path: newUrl}, '', newUrl);
         initData.requestedGame = {gameId, versionId};
     }
 
@@ -96,14 +96,16 @@ socketWorker.onmessage = (socketMessage) => {
 
             const squishVersionLength = currentBuf[6];
             const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
-//            const squishVersion = squishMap[squishVersionString];
-//            squish = squishVersion.squish;
-//            unsquish = squishVersion.unsquish;
-//            Colors = squishVersion.Colors;
+           const squishVersion = squishMap[squishVersionString];
+           console.log("SQUISH VERSION");
+           console.log(squishVersion);
+           if (squishVersion) {
+               squish = squishVersion.squish;
+               unsquish = squishVersion.unsquish;
+               Colors = squishVersion.Colors;
+            }
             initCanvas();
         } else if (currentBuf[0] == 1) {
-            console.log("STORING ASSETSSSSS");
-            console.log(currentBuf);
             storeAssets(currentBuf);
         } else if (currentBuf[0] == 9) {
             // for now i know its just aspectRatio
@@ -280,6 +282,7 @@ const storeAssets = (buf) => {
                 gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
                 i += 12 + payloadLength;
             } else {
+                console.log('audio key ');
                 // audio
                 const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
@@ -289,9 +292,10 @@ const storeAssets = (buf) => {
                 if (!audioCtx) {
                     gameAssets[payloadKey] = {"type": "audio", "data": payloadData.buffer, "decoded": false};
                 } else {
-///                    audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
- //                       gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
- //                   });
+                    console.log('what is this');
+                      audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
+                        gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
+                    });
                 }
 
                 i += 12 + payloadLength;
@@ -303,6 +307,7 @@ const storeAssets = (buf) => {
 let thingIndices = [];
 
 function renderBuf(buf) {
+    const soundsToStop = new Set(Object.keys(playingSounds));
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
     thingIndices = [];
@@ -316,6 +321,8 @@ function renderBuf(buf) {
         let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
         if (!thing.coordinates2d && thing.input && thing.text) {
+            console.log('hello there');
+            console.log(thing);
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
             ctx.font = fontSize + "px sans-serif";
@@ -409,17 +416,21 @@ function renderBuf(buf) {
             const assetKey = Object.keys(thing.asset)[0];
 
             if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                if (!playingSound && audioCtx && gameAssets[assetKey].decoded) {
+                if (!playingSounds[assetKey] && audioCtx && gameAssets[assetKey].decoded) {
                     source = audioCtx.createBufferSource();
                     source.connect(audioCtx.destination);
                     source.buffer = gameAssets[assetKey].data;
                     source.onended = () => {
-                        playingSound = false;
+                        delete playingSounds[assetKey];
                     }
                     source.start(0);
-                    playingSound = true;
-                } else if (!playingSound && audioCtx) {
+                    playingSounds[assetKey] = source;
+                } else if (!playingSounds[assetKey] && audioCtx) {
                     console.warn("Cant play audio");
+                } else if (playingSounds[assetKey]) {
+//                    console.log('what is this case - already playing?');
+                    // pause unless still referenced
+                    soundsToStop.delete(assetKey);
                 }
             } else {
                 const asset = thing.asset[assetKey];
@@ -466,9 +477,20 @@ function renderBuf(buf) {
         }
 
         i += frameSize;
+            ctx.shadowColor = null;
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 0;
+            ctx.strokeStyle = null;
+ 
 
         ctx.globalAlpha = 1;
     }
+
+    soundsToStop.forEach(assetKey => {
+        const source = playingSounds[assetKey];
+        source.stop();
+    });
+ 
 }
 
 let gamepads;
