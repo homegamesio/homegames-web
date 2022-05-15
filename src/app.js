@@ -1,8 +1,10 @@
 const squishMap = {
-    '0710': require('squish-0710')
+    '0710': require('squish-0710'),
+    '0730': require('squish-0730')
 };
 
-let { squish, unsquish, Colors } = squishMap['0710'];
+//let { squish, unsquish, Colors } = require('squishjs');
+let { squish, unsquish, Colors } = squishMap['0730'];
 
 let bezelInfo;
 
@@ -423,7 +425,8 @@ function renderBuf(buf) {
                     source.onended = () => {
                         delete playingSounds[assetKey];
                     }
-                    source.start(0);
+
+                    source.start(0, thing.asset[assetKey].startTime  || 0);//? thing.asset[assetKey].startTime / 1000 : 0);
                     playingSounds[assetKey] = source;
                 } else if (!playingSounds[assetKey] && audioCtx) {
                     console.warn("Cant play audio");
