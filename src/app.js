@@ -284,7 +284,6 @@ const storeAssets = (buf) => {
                 gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
                 i += 12 + payloadLength;
             } else {
-                console.log('audio key ');
                 // audio
                 const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
@@ -294,7 +293,6 @@ const storeAssets = (buf) => {
                 if (!audioCtx) {
                     gameAssets[payloadKey] = {"type": "audio", "data": payloadData.buffer, "decoded": false};
                 } else {
-                    console.log('what is this');
                       audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
                         gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
                     });
@@ -323,8 +321,6 @@ function renderBuf(buf) {
         let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
         if (!thing.coordinates2d && thing.input && thing.text) {
-            console.log('hello there');
-            console.log(thing);
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
             ctx.font = fontSize + "px sans-serif";
@@ -903,6 +899,7 @@ const canClick = (x, y) => {
         }
  
         if (isInside) {
+
             isClickable = clickableIndexChunk[0];
             action = clickableIndexChunk[1];
             nodeId = clickableIndexChunk[2];
