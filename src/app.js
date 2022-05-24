@@ -100,8 +100,6 @@ socketWorker.onmessage = (socketMessage) => {
             const squishVersionLength = currentBuf[6];
             const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
            const squishVersion = squishMap[squishVersionString];
-           console.log("SQUISH VERSION");
-           console.log(squishVersion);
            if (squishVersion) {
                squish = squishVersion.squish;
                unsquish = squishVersion.unsquish;
