@@ -31,6 +31,9 @@ let hotClient;
 let performanceProfiling;
 let performanceData = [];
 
+
+const HOME_PORT = window.config?.HOME_PORT || 7001;
+
 const performanceDiv = document.getElementById('performance-data');
 
 const getClientInfo = () => {
@@ -206,7 +209,7 @@ socketWorker.postMessage({
     socketInfo: {
         hostname: window.location.hostname,
         playerId: window.playerId || null,
-        port: 7001,
+        port: HOME_PORT,
         secure: window.location.host !== 'localhost' && window.isSecureContext
     }
 });

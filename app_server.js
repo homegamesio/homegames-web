@@ -3,6 +3,8 @@ const https = require("https");
 const fs = require('fs');
 const path = require('path');
 
+const baseDir = path.dirname(require.main.filename);
+
 const PATH_MAP = {
     "/": { 
         path: "web/index.html",
@@ -22,6 +24,10 @@ const PATH_MAP = {
     },
     "/socket.js": {
         path: "src/socket.js",
+        contentType: "text/javascript"
+    },
+    "/config.js": {
+        path: "config.js",
         contentType: "text/javascript"
     }
 };
