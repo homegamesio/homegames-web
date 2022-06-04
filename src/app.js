@@ -1,11 +1,9 @@
 const squishMap = {
-    '0710': require('squish-0710'),
-    '0730': require('squish-0730'),
-    '0740': require('squish-0740')
+    '0750': require('squish-0750')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
-let { squish, unsquish, Colors } = squishMap['0740'];
+let { squish, unsquish, Colors } = squishMap['0750'];
 
 let bezelInfo;
 
