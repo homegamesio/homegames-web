@@ -21,12 +21,16 @@ const initSocket = (hostname, port, playerId, secure, spectating) => {
     socket.onerror = (err) => {
         console.log("ERROR");
         console.log(err);
+        sentClientInfo = false;
+        clientInfo = undefined;
     };
 
     socket.onclose = () => {
         postMessage({
             type: 'SOCKET_CLOSE'
         });
+        sentClientInfo = false;
+        clientInfo = undefined;
     };
 
     socket.onmessage = function(msg) {
