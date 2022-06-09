@@ -35,7 +35,7 @@
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
     "assert": "^2.0.0",
-    "homegames-common": "0.1.5",
+    "homegames-common": "0.2.0",
     "squish-0750": "npm:squishjs@0.7.5"
   },
   "devDependencies": {

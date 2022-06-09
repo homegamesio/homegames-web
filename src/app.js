@@ -29,190 +29,201 @@ let hotClient;
 let performanceProfiling;
 let performanceData = [];
 
-
-const HOME_PORT = window.config?.HOME_PORT || 7001;
-
-const performanceDiv = document.getElementById('performance-data');
-
-const getClientInfo = () => {
-    // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
-    const userAgent = navigator.userAgent;
-
-    const info = {};
-
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
-        info.deviceType = "tablet";
-    } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
-        info.deviceType = "mobile";
-    } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
-        info.deviceType = "tablet";
-    } else { 
-        info.deviceType = "desktop";
-    }
-
-    const _clientWidth = window.innerWidth;
-    const _clientHeight = window.innerHeight;
-
-    let aspectRatio = null;
-
-    if (_clientWidth && _clientHeight) {
-        aspectRatio = _clientWidth / _clientHeight;
-    }
-
-    info.aspectRatio = aspectRatio;
-
-    return info;
-};
-
-const sendClientInfo = () => {
-    const clientInfo = getClientInfo();
-    const initData = {
-        clientInfo
-    }
-    
-    const searchParams = new URLSearchParams(window.location.search);
-    // init with a specific game if the url contains a game parameter
-    if (searchParams.get('gameId') && searchParams.get('versionId')) {
-        const gameId = searchParams.get('gameId');
-        const versionId = searchParams.get('versionId');
-        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-        window.history.pushState({path: newUrl}, '', newUrl);
-        initData.requestedGame = {gameId, versionId};
-    }
-
-    socketWorker.postMessage(initData);
-};
-
-socketWorker.onmessage = (socketMessage) => {
-    if (socketMessage.data.constructor === Object) {
-        if (socketMessage.data.type === 'SOCKET_CLOSE') {
-            rendering = false;
-        }
-    } else {
-        currentBuf = new Uint8ClampedArray(socketMessage.data);
-        if (currentBuf[0] == 2) {
-            window.playerId = currentBuf[1];
-            const aspectRatioX = currentBuf[2];
-            const aspectRatioY = currentBuf[3];
-            aspectRatio = {x: aspectRatioX, y: aspectRatioY};
-
-            bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
-
-            const squishVersionLength = currentBuf[6];
-            const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
-           const squishVersion = squishMap[squishVersionString];
-           if (squishVersion) {
-               squish = squishVersion.squish;
-               unsquish = squishVersion.unsquish;
-               Colors = squishVersion.Colors;
-            }
-            initCanvas();
-        } else if (currentBuf[0] == 1) {
-            storeAssets(currentBuf);
-        } else if (currentBuf[0] == 9) {
-            // for now i know its just aspectRatio
-            aspectRatio = {x: currentBuf[1], y: currentBuf[2]};
-            initCanvas();
-        } else if (currentBuf[0] === 5) {
-            spectating = false;
-            let a = String(currentBuf[1]);
-            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-            let newPort = a + b;
-
-            socketWorker.postMessage({
-                socketInfo: {
-                    hostname: window.location.hostname,
-                    playerId: window.playerId || null,
-                    port: Number(newPort),
-                    secure: window.location.host !== 'localhost' && window.isSecureContext
-                }
-            });
-
-        } else if (currentBuf[0] === 6) {
-            spectating = true;
-            let a = String(currentBuf[1]);
-            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-            let newPort = a + b;
-
-            socketWorker.postMessage({
-                socketInfo: {
-                    hostname: window.location.hostname,
-                    playerId: window.playerId || null,
-                    port: Number(newPort),
-                    secure: window.location.host !== 'localhost' && window.isSecureContext,
-                    spectating
-                }
-            });
-
-        } else if (currentBuf[0] === 7) {
-            initPerformance();
-        } else if (currentBuf[0] === 8) { 
-            let a = String(currentBuf[1]);
-            let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
-            let newPort = a + b;
-
-            if (!hotClient) {
-                const hostname = window.location.hostname;
-                hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
-                hotClient.onopen = () => {
-                    console.log('hot client opened');
-                }
-
-                hotClient.onerror = (err) => {
-                    console.log('hot client err');
-                    console.log(err);
-                }
-
-                hotClient.onmessage = (msg) => {
-                    if (msg.data === 'reload') {
-                        location.reload();
-                    }
-                }
-            }
-        } else if (currentBuf[0] == 3 && !rendering) {
-            rendering = true;
-            req();
-        }
-    }
-};
-
-const avgGraph = document.createElement('canvas');
-const lastNGraph = document.createElement('canvas');
-
-const avgGraphLabel = document.createElement('h3');
-const lastNGraphLabel = document.createElement('h3');
-
-const initPerformance = () => {
-    if (!performanceProfiling) {
-        performanceProfiling = true;
-
-        const div1 = document.createElement('div');
-        const div2 = document.createElement('div');
-
-        div1.style = 'float: left; margin-right: 50px';
-        div2.style = 'float: left';
-
-        div1.appendChild(avgGraph);
-        div2.appendChild(lastNGraph);
-
-        performanceDiv.appendChild(div1);
-        div1.appendChild(avgGraphLabel);
-
-        performanceDiv.appendChild(div2);
-        div2.appendChild(lastNGraphLabel);
-    }
-};
-
-socketWorker.postMessage({
-    socketInfo: {
-        hostname: window.location.hostname,
-        playerId: window.playerId || null,
-        port: HOME_PORT,
-        secure: window.location.host !== 'localhost' && window.isSecureContext
-    }
+const getConfig = () => new Promise((resolve, reject) => {
+    fetch('/config.json').then(response => {
+        response.json().then(responseJson => {
+            resolve(responseJson);
+        });
+    });
 });
 
-sendClientInfo();
+getConfig().then(config => {
+    const HOME_PORT = config.HOME_PORT || 7001;
+    
+    const performanceDiv = document.getElementById('performance-data');
+    
+    const getClientInfo = () => {
+        // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
+        const userAgent = navigator.userAgent;
+    
+        const info = {};
+    
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
+            info.deviceType = "tablet";
+        } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
+            info.deviceType = "mobile";
+        } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
+            info.deviceType = "tablet";
+        } else { 
+            info.deviceType = "desktop";
+        }
+    
+        const _clientWidth = window.innerWidth;
+        const _clientHeight = window.innerHeight;
+    
+        let aspectRatio = null;
+    
+        if (_clientWidth && _clientHeight) {
+            aspectRatio = _clientWidth / _clientHeight;
+        }
+    
+        info.aspectRatio = aspectRatio;
+    
+        return info;
+    };
+    
+    const sendClientInfo = () => {
+        const clientInfo = getClientInfo();
+        const initData = {
+            clientInfo
+        }
+        
+        const searchParams = new URLSearchParams(window.location.search);
+        // init with a specific game if the url contains a game parameter
+        if (searchParams.get('gameId') && searchParams.get('versionId')) {
+            const gameId = searchParams.get('gameId');
+            const versionId = searchParams.get('versionId');
+            const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+            window.history.pushState({path: newUrl}, '', newUrl);
+            initData.requestedGame = {gameId, versionId};
+        }
+    
+        socketWorker.postMessage(initData);
+    };
+    
+    socketWorker.onmessage = (socketMessage) => {
+        if (socketMessage.data.constructor === Object) {
+            if (socketMessage.data.type === 'SOCKET_CLOSE') {
+                rendering = false;
+            }
+        } else {
+            currentBuf = new Uint8ClampedArray(socketMessage.data);
+            if (currentBuf[0] == 2) {
+                window.playerId = currentBuf[1];
+                const aspectRatioX = currentBuf[2];
+                const aspectRatioY = currentBuf[3];
+                aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+    
+                bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
+    
+                const squishVersionLength = currentBuf[6];
+                const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
+               const squishVersion = squishMap[squishVersionString];
+               if (squishVersion) {
+                   squish = squishVersion.squish;
+                   unsquish = squishVersion.unsquish;
+                   Colors = squishVersion.Colors;
+                }
+                initCanvas();
+            } else if (currentBuf[0] == 1) {
+                storeAssets(currentBuf);
+            } else if (currentBuf[0] == 9) {
+                // for now i know its just aspectRatio
+                aspectRatio = {x: currentBuf[1], y: currentBuf[2]};
+                initCanvas();
+            } else if (currentBuf[0] === 5) {
+                spectating = false;
+                let a = String(currentBuf[1]);
+                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+                let newPort = a + b;
+    
+                console.log("GOT MSGGGG");
+                console.log(currentBuf);
+                socketWorker.postMessage({
+                    socketInfo: {
+                        hostname: window.location.hostname,
+                        playerId: window.playerId || null,
+                        port: Number(newPort),
+                        secure: window.location.host !== 'localhost' && window.isSecureContext
+                    }
+                });
+    
+            } else if (currentBuf[0] === 6) {
+                spectating = true;
+                let a = String(currentBuf[1]);
+                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+                let newPort = a + b;
+    
+                socketWorker.postMessage({
+                    socketInfo: {
+                        hostname: window.location.hostname,
+                        playerId: window.playerId || null,
+                        port: Number(newPort),
+                        secure: window.location.host !== 'localhost' && window.isSecureContext,
+                        spectating
+                    }
+                });
+    
+            } else if (currentBuf[0] === 7) {
+                initPerformance();
+            } else if (currentBuf[0] === 8) { 
+                let a = String(currentBuf[1]);
+                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+                let newPort = a + b;
+    
+                if (!hotClient) {
+                    const hostname = window.location.hostname;
+                    hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
+                    hotClient.onopen = () => {
+                        console.log('hot client opened');
+                    }
+    
+                    hotClient.onerror = (err) => {
+                        console.log('hot client err');
+                        console.log(err);
+                    }
+    
+                    hotClient.onmessage = (msg) => {
+                        if (msg.data === 'reload') {
+                            location.reload();
+                        }
+                    }
+                }
+            } else if (currentBuf[0] == 3 && !rendering) {
+                rendering = true;
+                req();
+            }
+        }
+    };
+    
+    const avgGraph = document.createElement('canvas');
+    const lastNGraph = document.createElement('canvas');
+    
+    const avgGraphLabel = document.createElement('h3');
+    const lastNGraphLabel = document.createElement('h3');
+    
+    const initPerformance = () => {
+        if (!performanceProfiling) {
+            performanceProfiling = true;
+    
+            const div1 = document.createElement('div');
+            const div2 = document.createElement('div');
+    
+            div1.style = 'float: left; margin-right: 50px';
+            div2.style = 'float: left';
+    
+            div1.appendChild(avgGraph);
+            div2.appendChild(lastNGraph);
+    
+            performanceDiv.appendChild(div1);
+            div1.appendChild(avgGraphLabel);
+    
+            performanceDiv.appendChild(div2);
+            div2.appendChild(lastNGraphLabel);
+        }
+    };
+    
+    socketWorker.postMessage({
+        socketInfo: {
+            hostname: window.location.hostname,
+            playerId: window.playerId || null,
+            port: HOME_PORT,
+            secure: window.location.host !== 'localhost' && window.isSecureContext
+        }
+    });
+    
+    sendClientInfo();
+})
 
 let gamepad;
 let moving;
