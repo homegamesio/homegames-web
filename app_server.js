@@ -26,9 +26,9 @@ const PATH_MAP = {
         path: "src/socket.js",
         contentType: "text/javascript"
     },
-    "/config.js": {
-        path: "config.js",
-        contentType: "text/javascript"
+    "/config.json": {
+        path: "config.json",
+        contentType: "application/json"
     }
 };
 
@@ -48,7 +48,8 @@ const server = (certPath) => {
         if (pathMapping) {
             res.statusCode = 200;
             res.setHeader("Content-Type", pathMapping.contentType);
-            const payload = fs.readFileSync(path.join(__dirname, pathMapping.path));
+            
+            const payload = fs.readFileSync(path.join(path.dirname(require.main.filename), pathMapping.path));
             res.end(payload);
         } else {
             res.statusCode = 404;
