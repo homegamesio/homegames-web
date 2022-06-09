@@ -34,8 +34,6 @@ const initSocket = (hostname, port, playerId, secure, spectating) => {
     };
 
     socket.onmessage = function(msg) {
-        console.log("JUST GOT A MESAAGE");
-        console.log(msg);
         if (!sentClientInfo) {
             clientInfo && socket.send(JSON.stringify(clientInfo));
             sentClientInfo = true;
@@ -47,8 +45,6 @@ const initSocket = (hostname, port, playerId, secure, spectating) => {
 };
 
 onmessage = (msg) => {
-    console.log('got a message from thjing');
-    console.log(msg);
     if (msg.data.socketInfo) {
         socket && socket.close();
         initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure, msg.data.socketInfo.spectating);
