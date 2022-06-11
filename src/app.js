@@ -646,7 +646,7 @@ function req() {
         performanceData.push({start: Date.now()});
     }
 
-    gamepads = navigator.getGamepads();
+    gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
