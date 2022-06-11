@@ -41,7 +41,7 @@ const server = (certPath) => {
             res.statusCode = 200;
             res.setHeader("Content-Type", 'application/json');
             
-            const payload = fs.readFileSync(path.join(__dirname, 'config.json'));
+            const payload = fs.readFileSync(path.join(process.cwd(), 'config.json'));
             res.end(payload);
         } else {
     
