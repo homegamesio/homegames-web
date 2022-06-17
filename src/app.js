@@ -1,5 +1,7 @@
 const squishMap = {
-    '0750': require('squish-0750')
+    '0750': require('squish-0750'),
+    '0751': require('squish-0751'),
+    '0754': require('squish-0754')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -127,8 +129,6 @@ getConfig().then(config => {
                 let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
                 let newPort = a + b;
     
-                console.log("GOT MSGGGG");
-                console.log(currentBuf);
                 socketWorker.postMessage({
                     socketInfo: {
                         hostname: window.location.hostname,
@@ -326,16 +326,15 @@ function renderBuf(buf) {
     while (buf && i < buf.length) {
         const frameType = buf[i];
 
-        const frameSize = buf[i + 1];
+        const frameSize = buf[i + 1] + buf[i+2] + buf[i+3];
 
-        let bufIndex = i + 2;
         let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
         if (!thing.coordinates2d && thing.input && thing.text) {
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
             ctx.font = fontSize + "px sans-serif";
- 
+
             const textInfo = ctx.measureText(thing.text.text);
             let textStartX = thing.text.x * canvas.width / 100;
             
@@ -438,7 +437,6 @@ function renderBuf(buf) {
                 } else if (!playingSounds[assetKey] && audioCtx) {
                     console.warn("Cant play audio");
                 } else if (playingSounds[assetKey]) {
-//                    console.log('what is this case - already playing?');
                     // pause unless still referenced
                     soundsToStop.delete(assetKey);
                 }
