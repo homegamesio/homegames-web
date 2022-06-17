@@ -110,6 +110,7 @@ getConfig().then(config => {
     
                 const squishVersionLength = currentBuf[6];
                 const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
+                window.squishVersion = squishVersionString;
                const squishVersion = squishMap[squishVersionString];
                if (squishVersion) {
                    squish = squishVersion.squish;
@@ -326,7 +327,7 @@ function renderBuf(buf) {
     while (buf && i < buf.length) {
         const frameType = buf[i];
 
-        const frameSize = buf[i + 1] + buf[i+2] + buf[i+3];
+        const frameSize = window.squishVersion === '0750' || window.squishVersion === '0751' ? buf[i + 1] : buf[i + 1] + buf[i+2] + buf[i+3];
 
         let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
