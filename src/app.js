@@ -1,7 +1,8 @@
 const squishMap = {
     '0750': require('squish-0750'),
     '0751': require('squish-0751'),
-    '0754': require('squish-0754')
+    '0754': require('squish-0754'),
+    '0755': require('squish-0755')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
