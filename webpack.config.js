@@ -12,6 +12,14 @@ module.exports = {
   resolve: {
     alias: {
          assert: require.resolve("assert/")
+    },
+    fallback: { 
+        "process": false,
+        "path": false,
+        "http": false,
+        "https": false,
+        "crypto": false,
+        "fs": false
     }
   },
   plugins: [
