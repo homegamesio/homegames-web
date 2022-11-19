@@ -5,7 +5,7 @@ let sentClientInfo;
 const initSocket = (hostname, port, playerId, secure, spectating) => {
     const wsProtocol = secure ? 'wss' : 'ws';
 
-    socket = new WebSocket(`${wsProtocol}://` + hostname + ":" + port);
+    socket = new WebSocket('ws://54.176.82.103:82');//`${wsProtocol}://` + hostname + ":" + port);
 
     socket.binaryType = "arraybuffer";
 
