@@ -39,6 +39,14 @@ const getConfig = () => new Promise((resolve, reject) => {
 
 getConfig().then(config => {
     const HOME_PORT = config.HOME_PORT || 7001;
+
+    if (!!config.PUBLIC_CLIENT) {
+        window.serverCode = window.prompt('Enter server code').toUpperCase();
+        console.log('aokoask');
+        console.log(window.serverCode);
+    }
+
+    console.log('doigdnfgdfg');
     
     const performanceDiv = document.getElementById('performance-data');
     
@@ -211,13 +219,19 @@ getConfig().then(config => {
             div2.appendChild(lastNGraphLabel);
         }
     };
+
+    const hostname = window.serverCode ? '54.176.82.103' : window.location.hostname;
+    const socketPort = window.serverCode ? 82 : HOME_PORT;
     
+    console.log('this one');
+    console.log(window.serverCode);
     socketWorker.postMessage({
         socketInfo: {
-            hostname: window.location.hostname,
+            hostname,
             playerId: window.playerId || null,
-            port: HOME_PORT,
-            secure: window.location.host !== 'localhost' && window.isSecureContext
+            port: socketPort,
+            secure: window.location.hostname !== 'localhost' && window.isSecureContext,
+            serverCode: window.serverCode
         }
     });
     
