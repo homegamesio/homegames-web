@@ -37,17 +37,32 @@ const getConfig = () => new Promise((resolve, reject) => {
     });
 });
 
+const showErrorDiv = (childDiv) => {
+	const errorDiv = document.createElement('div');
+	errorDiv.style.position = 'absolute';
+	errorDiv.style.width = '100vw;';
+	errorDiv.style.top = '0';
+	errorDiv.style['text-align'] = 'center';
+	errorDiv.style['font-size'] = '10vw';
+
+	errorDiv.appendChild(childDiv);
+	document.body.appendChild(errorDiv);
+};
+
+
 getConfig().then(config => {
     const HOME_PORT = config.HOME_PORT || 7001;
 
     if (!!config.PUBLIC_CLIENT) {
-        window.serverCode = window.prompt('Enter server code').toUpperCase();
-        console.log('aokoask');
-        console.log(window.serverCode);
+	    const urlParams = new URLSearchParams(window.location.search);
+	    const code = urlParams.get('code');
+	    if (code) {
+		const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+            	window.history.pushState({path: newUrl}, '', newUrl);
+	    }
+	    window.serverCode = code ? code.toUpperCase() : window.prompt('Enter server code').toUpperCase();
     }
 
-    console.log('doigdnfgdfg');
-    
     const performanceDiv = document.getElementById('performance-data');
     
     const getClientInfo = () => {
@@ -104,6 +119,19 @@ getConfig().then(config => {
             if (socketMessage.data.type === 'SOCKET_CLOSE') {
                 rendering = false;
             }
+
+	    if (socketMessage.data.type === 'ERROR') {
+		rendering = false;
+		const childDiv = document.createElement('div');
+		const textChildDiv = document.createElement('div');
+		textChildDiv.innerHTML = 'Error: ' + socketMessage.data.message;    
+		const linkDiv = document.createElement('a');
+		linkDiv.href = 'https://public.homegames.link/code';
+		linkDiv.innerHTML = "Try again";
+		childDiv.appendChild(textChildDiv);
+		childDiv.appendChild(linkDiv);
+		showErrorDiv(childDiv);
+	    }
         } else {
             currentBuf = new Uint8ClampedArray(socketMessage.data);
             if (currentBuf[0] == 2) {
@@ -220,11 +248,9 @@ getConfig().then(config => {
         }
     };
 
-    const hostname = window.serverCode ? '54.176.82.103' : window.location.hostname;
+    const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
     const socketPort = window.serverCode ? 82 : HOME_PORT;
     
-    console.log('this one');
-    console.log(window.serverCode);
     socketWorker.postMessage({
         socketInfo: {
             hostname,

@@ -43,11 +43,21 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
     };
 
     socket.onmessage = function(msg) {
+	    console.log('got emssage');
+	    console.log(msg);
+	    // todo: encode this in a better way
+	    if (msg.data === 'error: bad code supplied') {
+		postMessage({
+			type: 'ERROR',
+			message: 'Bad server code supplied.'
+		});
+	    } else {
         if (!sentClientInfo) {
             clientInfo && socket.send(JSON.stringify(clientInfo));
             sentClientInfo = true;
         }
         postMessage(msg.data);
+	    }
     };
 
     return socket;
