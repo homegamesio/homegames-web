@@ -1,3 +1,6 @@
+const { Homepad } = require('homepad');
+const hp = new Homepad();
+
 const squishMap = {
     '0756': require('squish-0756')
 };
@@ -542,137 +545,14 @@ function renderBuf(buf) {
 
 let gamepads;
 
-const getGamepadMappings = (gamepadId) => {
-    if (gamepadId.indexOf('Xbox 360') >= 0 || gamepadId.indexOf('Xbox One') >= 0) { 
-        const leftStickXIndex = 0;
-        const leftStickYIndex = 1;
-
-        const rightStickXIndex = 2;
-        const rightStickYIndex = 3;
-
-        const stickInputThreshold = 0.2;
-
-        const aButtonIndex = 0;
-        const bButtonIndex = 1;
-        const xButtonIndex = 2;
-        const yButtonIndex = 3;
-
-        const stickMappings = {
-            [leftStickXIndex]: (val) => {
-                if (Math.abs(val) >= stickInputThreshold) {
-                    if (val < 0) {
-                        keydown('a');
-                        keysDown['a'] = true;
-                    } else {
-                        keydown('d');
-                        keysDown['d'] = true;
-                    }
-                } else {
-                    keysDown['a'] = false;
-                    keysDown['d'] = false;
-                }
-            },
-            [leftStickYIndex]: (val) => {
-                if (Math.abs(val) >= stickInputThreshold) {
-                    if (val < 0) {
-                        keydown('w');
-                        keysDown['w'] = true;
-                    } else {
-                        keydown('s');
-                        keysDown['s'] = true;
-                    }
-                } else {
-                    keysDown['w'] = false;
-                    keysDown['s'] = false;
-                }
-            },
-            [rightStickXIndex]: (val) => {
-                if (Math.abs(val) >= stickInputThreshold) {
-                    if (val < 0) {
-                        keydown('ArrowLeft');
-                        keysDown['ArrowLeft'] = true;
-                    } else {
-                        keydown('ArrowRight');
-                        keysDown['ArrowRight'] = true;
-                    }
-                } else {
-                    keysDown['ArrowLeft'] = false;
-                    keysDown['ArrowRight'] = false;
-                }
-            },
-            [rightStickYIndex]: (val) => {
-                if (Math.abs(val) >= stickInputThreshold) {
-                    if (val < 0) {
-                        keydown('ArrowUp');
-                        keysDown['ArrowUp'] = true;
-                    } else {
-                        keydown('ArrowDown');
-                        keysDown['ArrowDown'] = true;
-                    }
-                } else {
-                    keysDown['ArrowDown'] = false;
-                    keysDown['ArrowUp'] = false;
-                }
-            }
-        };
-
-        const buttonMappings = {
-            [aButtonIndex]: {
-                press: () => {
-                    console.log('a');
-                },
-                depress: () => {
-                    console.log(':(');
-                }
-            },
-            [bButtonIndex]: {
-                press: () => {
-                    console.log('b');
-                },
-                depress: () => {
-                    console.log('no b');
-                }
-            },
-            [xButtonIndex]: {
-                press: () => {
-                    console.log('x');
-                },
-                depress: () => {
-                    console.log('no x');
-                }
-            },
-            [yButtonIndex]: {
-                press: () => {
-                    console.log('y');
-                },
-                depress: () => {
-                    console.log('no y');
-                }
-
-            }
-        }
-
-        return {
-            stickMappings,
-            buttonMappings
-        }
-    }
-};
-
-const gamepadsPressed = {};
-
-const getActiveGamepads = (gamepads) => {
-    const activeGamepads = new Map();
-
-    for (let gamepadIndex = 0; gamepadIndex < gamepads.length; gamepadIndex++) {
-        const gamepad = gamepads[gamepadIndex];
-        activeGamepads.set(gamepadIndex, gamepad);
-    }
-
-    return activeGamepads;
-};
-
 let clickStopper;
+
+const updateGamepads = () => {
+    gamepads = hp.getGamepads();
+}
+
+window.addEventListener('gamepadconnected', updateGamepads);
+window.addEventListener('gamepaddisconnected', updateGamepads);
 
 function req() {
     if (!rendering) {
@@ -683,36 +563,18 @@ function req() {
         performanceData.push({start: Date.now()});
     }
 
-    gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
-    const activeGamepads = getActiveGamepads(gamepads);
+    // console.log('ayoo');
+    // console.log(gamepads);
+    const activeGamepads = gamepads;//hp.getGamepads();
 
-    if (activeGamepads.length) {
-        activeGamepads.forEach((gamepadIndex, gamepad) => {
-            if (!gamepadsPressed.hasOwnProperty(gamepadIndex)) {
-                gamepadsPressed[gamepadIndex] = {};
-            }
-            const inputMappings = getGamepadMappings(gamepad.id);
-            if (inputMappings) {
-                for (let stickIndex in inputMappings.stickMappings) {
-                    inputMappings.stickMappings[stickIndex](gamepad.axes[stickIndex]);
-                }
+    // console.log('active gameeee');
+    // console.log(activeGamepads);
 
-                for (let buttonIndex in inputMappings.buttonMappings) {
-                    if (!gamepadsPressed[gamepadIndex].hasOwnProperty(buttonIndex)) {
-                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                    }
-                    if (gamepad.buttons[buttonIndex].pressed && !gamepadsPressed[gamepadIndex][buttonIndex]) {
-                        gamepadsPressed[gamepadIndex][buttonIndex] = true;
-                        inputMappings.buttonMappings[buttonIndex].press();
-                    } else if (!gamepad.buttons[buttonIndex].pressed && gamepadsPressed[gamepadIndex][buttonIndex]) {
-                        gamepadsPressed[gamepadIndex][buttonIndex] = false;
-                        inputMappings.buttonMappings[buttonIndex].depress();
-                    }
-                }
-            }
+    if (gamepads && gamepads.length) {
+        gamepads.forEach((gamepad) => {
+            sendGamepadState(hp.getGamepadState(gamepad.index));
         });
     } 
 
@@ -850,6 +712,17 @@ const click = function(clickInfo = {}) {
         }
     }
 };
+
+const sendGamepadState = (gamepadState) => {
+    // console.log('sending this!');
+    // console.log(gamepadState);
+    socketWorker.postMessage(JSON.stringify({
+        type: 'input',
+        gamepad: true,
+        input: gamepadState
+        // nodeId: clickInfo.nodeId
+    }));
+}
 
 const keydown = function(key) {
     const payload = {type: "keydown",  key: key};
