@@ -29,6 +29,10 @@ const PATH_MAP = {
     "/config.json": {
         path: "config.json",
         contentType: "application/json"
+    },
+    "/code": {
+       path: "web/code.html",
+       contentType: "text/html"
     }
 };
 

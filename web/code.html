@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Join Homegames Server</title>
+	</head>
+	<body style="background: rgba(241, 112, 111, 255); font-family: sans-serif">
+		<div style="width: 80vw; margin-left: 10vw; font-size: 12vw; text-align: center; height: 10vh; margin-top: 33.75vh; line-height: 10vh">
+			Enter code
+		</div>
+		<div style="width: 80vw; height: 20vh; margin-left: 10vw; margin-top: 5vw">
+			<input id="code" type="text" style="width: 100%; height: 100%; font-size: 15vw; text-align: center" />
+		</div>
+	</body>
+	<script>
+		const inputDiv = document.getElementById('code');
+		inputDiv.oninput = (e) => {
+			const inputVal = e.target.value;
+			if (inputVal.length === 4) {
+				window.location.replace('https://public.homegames.link?code=' + inputVal);	
+			}
+		};
+	</script>
+	<noscript>
+		<div style="height: 100vh !important; width: 100vw !important; position: absolute; top: 0; background: white; font-size: xxx-large">Homegames requires JavaScript to work.<br /><br />Please ensure your browser has JavaScript enabled.<br /><br />Contact joseph@homegames.io if you need support</div>
+	</noscript>
+</html>
