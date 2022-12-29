@@ -2,7 +2,9 @@ const { Homepad } = require('homepad');
 const hp = new Homepad();
 
 const squishMap = {
-    '0756': require('squish-0756')
+    '0756': require('squish-0756'),
+    '0762': require('squish-0762'),
+    '0765': require('squish-0765'),
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -348,7 +350,7 @@ const storeAssets = (buf) => {
                 const imgBase64 = btoa(imgBase64String);
                 gameAssets[payloadKey] = {"type": "image", "data": "data:image/jpeg;base64," + imgBase64};
                 i += 12 + payloadLength;
-            } else {
+            } else if (assetType === 2) {
                 // audio
                 const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
                 const payloadLength = parseInt(payloadLengthBase32, 36);
@@ -360,10 +362,32 @@ const storeAssets = (buf) => {
                 } else {
                       audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
                         gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
+                    }, (err) => {
+                        console.log('unable to decode audio data');
+                        console.log(err);
                     });
                 }
 
                 i += 12 + payloadLength;
+            } else if (assetType === 3) {
+                // font
+                const payloadLengthBase32 = String.fromCharCode.apply(null, buf.slice(i + 2, i + 12));
+                const payloadLength = parseInt(payloadLengthBase32, 36);
+                const payloadKeyRaw = buf.slice(i + 12, i + 12 + 32);
+                const payloadData = buf.slice(i + 12 + 32, i + 12 +  payloadLength);
+                const payloadKey = String.fromCharCode.apply(null, payloadKeyRaw.filter(k => k)); 
+                
+                const font = new FontFace(payloadKey, payloadData);
+
+                if (font) {
+                    font.load().then((loadedFont) => {
+                        document.fonts.add(loadedFont);
+                        gameAssets[payloadKey] = { "type": "font", "data": loadedFont, "name": payloadKey }
+                    });
+                }
+                i += 12 + payloadLength;
+            } else {
+                console.error('Unknown asset type: ' + assetType);
             }
         }
     }
@@ -466,7 +490,7 @@ function renderBuf(buf) {
             ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
-            ctx.font = fontSize + "px sans-serif";
+            ctx.font = fontSize + "px " + (!thing.text.font || thing.text.font === 'default' ? "sans-serif" : thing.text.font);
             if (thing.text.align) {
                 ctx.textAlign = thing.text.align;
             }
