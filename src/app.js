@@ -382,11 +382,6 @@ const storeAssets = (buf) => {
                 if (font) {
                     font.load().then((loadedFont) => {
                         document.fonts.add(loadedFont);
-                        //const testEl = document.createElement('div');
-                        //testEl.style.fontFamily = '"' + payloadKey + '"';
-                        //testEl.style.size = '40px';
-                        //testEl.innerHTML = 'ayy lmao';
-                        //document.getElementById('performance-data').appendChild(testEl);
                         gameAssets[payloadKey] = { "type": "font", "data": loadedFont, "name": payloadKey }
                     });
                 }
