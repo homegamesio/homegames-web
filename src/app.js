@@ -40,9 +40,32 @@ const getConfig = () => new Promise((resolve, reject) => {
     });
 });
 
+const showErrorDiv = (childDiv) => {
+	const errorDiv = document.createElement('div');
+	errorDiv.style.position = 'absolute';
+	errorDiv.style.width = '100vw;';
+	errorDiv.style.top = '0';
+	errorDiv.style['text-align'] = 'center';
+	errorDiv.style['font-size'] = '10vw';
+
+	errorDiv.appendChild(childDiv);
+	document.body.appendChild(errorDiv);
+};
+
+
 getConfig().then(config => {
     const HOME_PORT = config.HOME_PORT || 7001;
-    
+
+    if (!!config.PUBLIC_CLIENT) {
+	    const urlParams = new URLSearchParams(window.location.search);
+	    const code = urlParams.get('code');
+	    if (code) {
+		const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+            	window.history.pushState({path: newUrl}, '', newUrl);
+	    }
+	    window.serverCode = code ? code.toUpperCase() : window.prompt('Enter server code').toUpperCase();
+    }
+
     const performanceDiv = document.getElementById('performance-data');
     
     const getClientInfo = () => {
@@ -99,26 +122,44 @@ getConfig().then(config => {
             if (socketMessage.data.type === 'SOCKET_CLOSE') {
                 rendering = false;
             }
+
+	    if (socketMessage.data.type === 'ERROR') {
+		rendering = false;
+		const childDiv = document.createElement('div');
+		const textChildDiv = document.createElement('div');
+		textChildDiv.innerHTML = 'Error: ' + socketMessage.data.message;    
+		const linkDiv = document.createElement('a');
+		linkDiv.href = 'https://public.homegames.link/code';
+		linkDiv.innerHTML = "Try again";
+		childDiv.appendChild(textChildDiv);
+		childDiv.appendChild(linkDiv);
+		showErrorDiv(childDiv);
+	    }
         } else {
             currentBuf = new Uint8ClampedArray(socketMessage.data);
             if (currentBuf[0] == 2) {
                 window.playerId = currentBuf[1];
-                const aspectRatioX = currentBuf[2];
-                const aspectRatioY = currentBuf[3];
-                aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+		if (currentBuf.length == 2) {
+            		socketWorker.postMessage({type: 'finishReady', playerId: window.playerId });
+		}
+		if (currentBuf.length > 2) {
+                 	 const aspectRatioX = currentBuf[2];
+                 	 const aspectRatioY = currentBuf[3];
+                 	 aspectRatio = {x: aspectRatioX, y: aspectRatioY};
     
-                bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
+                 	 bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
     
-                const squishVersionLength = currentBuf[6];
-                const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
-                window.squishVersion = squishVersionString;
-               const squishVersion = squishMap[squishVersionString];
-               if (squishVersion) {
-                   squish = squishVersion.squish;
-                   unsquish = squishVersion.unsquish;
-                   Colors = squishVersion.Colors;
-                }
-                initCanvas();
+                 	 const squishVersionLength = currentBuf[6];
+                 	 const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
+                 	 window.squishVersion = squishVersionString;
+                 	const squishVersion = squishMap[squishVersionString];
+                 	if (squishVersion) {
+                 	    squish = squishVersion.squish;
+                 	    unsquish = squishVersion.unsquish;
+                 	    Colors = squishVersion.Colors;
+                 	 }
+                 	 initCanvas();
+		}
             } else if (currentBuf[0] == 1) {
                 storeAssets(currentBuf);
             } else if (currentBuf[0] == 9) {
@@ -130,13 +171,17 @@ getConfig().then(config => {
                 let a = String(currentBuf[1]);
                 let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
                 let newPort = a + b;
+     		const hostname2 = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+    		const socketPort2 = window.serverCode ? 82 : newPort;
     
                 socketWorker.postMessage({
                     socketInfo: {
-                        hostname: window.location.hostname,
+                        hostname: hostname2,//window.location.hostname,
                         playerId: window.playerId || null,
-                        port: Number(newPort),
-                        secure: window.location.host !== 'localhost' && window.isSecureContext
+                        port: Number(socketPort2),
+                        secure: window.location.host !== 'localhost' && window.isSecureContext,
+            		serverCode: window.serverCode,
+			spectating
                     }
                 });
     
@@ -146,12 +191,15 @@ getConfig().then(config => {
                 let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
                 let newPort = a + b;
     
+    		const hostname2 = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+    		const socketPort2 = window.serverCode ? 82 : newPort;
                 socketWorker.postMessage({
                     socketInfo: {
-                        hostname: window.location.hostname,
+                        hostname: hostname2,// window.location.hostname,
                         playerId: window.playerId || null,
-                        port: Number(newPort),
+                        port: Number(socketPort2),
                         secure: window.location.host !== 'localhost' && window.isSecureContext,
+            		serverCode: window.serverCode,
                         spectating
                     }
                 });
@@ -214,13 +262,17 @@ getConfig().then(config => {
             div2.appendChild(lastNGraphLabel);
         }
     };
+
+    const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+    const socketPort = window.serverCode ? 82 : HOME_PORT;
     
     socketWorker.postMessage({
         socketInfo: {
-            hostname: window.location.hostname,
+            hostname,
             playerId: window.playerId || null,
-            port: HOME_PORT,
-            secure: window.location.host !== 'localhost' && window.isSecureContext
+            port: socketPort,
+            secure: window.location.hostname !== 'localhost' && window.isSecureContext,
+            serverCode: window.serverCode
         }
     });
     
@@ -525,12 +577,7 @@ function req() {
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
-    // console.log('ayoo');
-    // console.log(gamepads);
-    const activeGamepads = gamepads;//hp.getGamepads();
-
-    // console.log('active gameeee');
-    // console.log(activeGamepads);
+    const activeGamepads = gamepads;
 
     if (gamepads && gamepads.length) {
         gamepads.forEach((gamepad) => {
@@ -674,8 +721,6 @@ const click = function(clickInfo = {}) {
 };
 
 const sendGamepadState = (gamepadState) => {
-    // console.log('sending this!');
-    // console.log(gamepadState);
     socketWorker.postMessage(JSON.stringify({
         type: 'input',
         gamepad: true,
@@ -884,5 +929,3 @@ window.addEventListener('resize', () => {
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
     sendClientInfo();
 });
-
-
