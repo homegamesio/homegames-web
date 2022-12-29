@@ -2,7 +2,9 @@ const { Homepad } = require('homepad');
 const hp = new Homepad();
 
 const squishMap = {
-    '0756': require('squish-0756')
+    '0756': require('squish-0756'),
+    '0762': require('squish-0762'),
+    '0765': require('squish-0765'),
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -360,6 +362,9 @@ const storeAssets = (buf) => {
                 } else {
                       audioCtx.decodeAudioData(payloadData.buffer, (buffer) => {
                         gameAssets[payloadKey] = {"type": "audio", "data": buffer, "decoded": true};
+                    }, (err) => {
+                        console.log('unable to decode audio data');
+                        console.log(err);
                     });
                 }
 
@@ -490,7 +495,7 @@ function renderBuf(buf) {
             ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
             const maxTextSize = Math.floor(canvas.width);
             const fontSize = (thing.text.size / 100) * maxTextSize;
-            ctx.font = fontSize + "px " + (thing.text.font === 'default' ? "sans-serif" : thing.text.font);
+            ctx.font = fontSize + "px " + (!thing.text.font || thing.text.font === 'default' ? "sans-serif" : thing.text.font);
             if (thing.text.align) {
                 ctx.textAlign = thing.text.align;
             }
