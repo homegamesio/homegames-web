@@ -11,22 +11,17 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
     //socket = new WebSocket('ws://54.176.82.103:82');//`${wsProtocol}://` + hostname + ":" + port);
     socket = new WebSocket(`${wsProtocol}://${hostname}:${port}`);
 
-    console.log('what the hell is my player id ' + playerId);
-
     socket.binaryType = "arraybuffer";
 
     socket.onopen = () => {
-        console.log('sever code ? ' + serverCode);
         if (serverCode) {
             socket.send(JSON.stringify({
                 type: 'code',
                 code: serverCode
             }));
     		code = serverCode;
-	    console.log('need to wait for id from server');
 		needReadyFinish = true;
         } else {
-	    console.log('ayyyy lmao');
        	    needReadyFinish = false;
             socket.send(JSON.stringify({
                 type: "ready",
@@ -54,8 +49,6 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
     };
 
     socket.onmessage = function(msg) {
-	    console.log('got emssage');
-	    console.log(msg);
 	    // todo: encode this in a better way
 	    if (msg.data === 'error: bad code supplied') {
 		postMessage({
@@ -75,7 +68,6 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
 };
 
 onmessage = (msg) => {
-    console.log(msg);
     if (msg.data.type && msg.data.type == 'finishReady') {
             socket.send(JSON.stringify({
                 type: "ready",

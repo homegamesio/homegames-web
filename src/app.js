@@ -139,7 +139,6 @@ getConfig().then(config => {
             currentBuf = new Uint8ClampedArray(socketMessage.data);
             if (currentBuf[0] == 2) {
                 window.playerId = currentBuf[1];
-		console.log('just got a message, my id is ' + window.playerId);
 		if (currentBuf.length == 2) {
             		socketWorker.postMessage({type: 'finishReady', playerId: window.playerId });
 		}
@@ -578,12 +577,7 @@ function req() {
 
     Object.keys(keysDown).filter(k => keysDown[k]).forEach(k => keydown(k));
 
-    // console.log('ayoo');
-    // console.log(gamepads);
-    const activeGamepads = gamepads;//hp.getGamepads();
-
-    // console.log('active gameeee');
-    // console.log(activeGamepads);
+    const activeGamepads = gamepads;
 
     if (gamepads && gamepads.length) {
         gamepads.forEach((gamepad) => {
@@ -727,8 +721,6 @@ const click = function(clickInfo = {}) {
 };
 
 const sendGamepadState = (gamepadState) => {
-    // console.log('sending this!');
-    // console.log(gamepadState);
     socketWorker.postMessage(JSON.stringify({
         type: 'input',
         gamepad: true,
