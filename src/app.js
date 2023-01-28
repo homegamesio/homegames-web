@@ -36,9 +36,62 @@ fileInputDiv.style.display = 'block';
 const frameSelectorDiv = document.getElementById('frame-selector');
 frameSelectorDiv.style.display = 'block';
 
+const fileInfoDiv = document.getElementById('file-info');
+fileInfoDiv.style.display = 'block';
+
+const clearChildren = (el) => {
+    while (el.firstChild) {
+        el.removeChild(el.firstChild);
+    }
+};
+
+const renderFileInfo = (fileInfo, onPlayerIdChange, onPlay) => {
+    clearChildren(fileInfoDiv);
+    const container = document.createElement('div');
+
+    const playButton = document.createElement('div');
+    playButton.innerHTML = 'Play';
+    playButton.onclick = () => onPlay();
+
+    const frameCountDiv = document.createElement('div');
+    const playerIdSelector = document.createElement('select');
+    playerIdSelector.value = window.playerId;
+
+    const idOptions = new Set(fileInfo.playerIds);
+    // TODO: add this back. we dont always have spectator frames available.
+    // game session should make this easily available? if its recording, 
+    // it should always be saving spectator frames
+    // idOptions.add('Spectator');
+
+    for (const pId of idOptions) {
+        const playerIdOption = document.createElement('option');
+        playerIdOption.value = pId === 'Spectator' ? 0 : pId;
+        playerIdOption.innerHTML = pId;
+
+        playerIdSelector.appendChild(playerIdOption);
+    };
+
+    playerIdSelector.onchange = (e) => {
+        window.playerId = Number(e.target.value);
+        onPlayerIdChange(e.target.value);
+    }
+
+    frameCountDiv.innerHTML = 'Frames: ' + fileInfo?.frameCount;
+
+    container.appendChild(frameCountDiv);
+    container.appendChild(playerIdSelector);
+    container.appendChild(playButton);
+
+    fileInfoDiv.appendChild(container);
+}
+
 fileInputDiv.oninput = (e) => {
     // console.log('fiiele');
     // console.log(e);
+    if (!e?.target?.files?.length) {
+        return;
+    }
+
     const uploaded = e.target.files[0];
     // console.log(uploaded);
     const reader = new FileReader();
@@ -66,26 +119,82 @@ fileInputDiv.oninput = (e) => {
 
         initCanvas();
 
-        console.log('how many things in this ');
-        console.log(parsedData.data.length);
+        const seenPlayerIds = new Set();
+        parsedData.data.forEach(d => {
+            // console.log(d.data);
+            d.data.forEach(f => {
+                const unsquished = unsquish(f);
+                // console.log('just unsquished!');
+                // console.log(unsquished);
+                if (unsquished?.node?.playerIds?.length > 0) { 
+                    // console.log('has player ids');
+                    // console.log();
+                    unsquished.node.playerIds.forEach(id => seenPlayerIds.add(id));
+                }
+            });
+            
+        });
+
+        console.log('seen player ids');
+        console.log(seenPlayerIds)
+
+        const fileInfo = {
+            frameCount: parsedData.data.length,
+            playerIds: seenPlayerIds
+        };
+
         const startWith3 = parsedData.data.filter(d => d.data[0][0] === 3);
-        console.log('start with 3 ' + startWith3.length);
+
+        let currentFrame = 0;
+
+        const onPlayerIdChange = () => {
+            playing = false;
+            renderBuf(startWith3[currentFrame].data.flat());
+        };
+
+        let playing = false;
+        const startPlay = () => {
+            const hasNextFrame = currentFrame + 1 < startWith3.length;
+            if (hasNextFrame && playing) {
+                const timeDiff = startWith3[currentFrame + 1].timestamp - startWith3[currentFrame].timestamp;
+                setTimeout(() => {
+                    currentFrame++;
+                    frameSelectorDiv.value = currentFrame + 1;
+                    renderBuf(startWith3[currentFrame].data.flat());
+                    startPlay();
+                }, timeDiff);
+            } else {
+                playing = false;
+            }
+        }
+
+        const onPlay = () => {
+            playing = true;
+            startPlay();
+        }
+
+        renderFileInfo(fileInfo, onPlayerIdChange, onPlay);
+        // console.log('how many things in this ');
+        // console.log(parsedData.data.length);
+        // console.log('start with 3 ' + startWith3.length);
 
         // renderBuf(startWith3[0].data[0].flat());
         
         frameSelectorDiv.value = 1;
         frameSelectorDiv.min = 1;
-        frameSelectorDiv.max = startWith3.length + 1;
+        frameSelectorDiv.max = startWith3.length;
 
         frameSelectorDiv.oninput = () => {
-            console.log('input!');
-            console.log(frameSelectorDiv.value);
+            // console.log('input!');
+            // console.log(frameSelectorDiv.value);
             if (startWith3[Number(frameSelectorDiv.value - 1)]) {
-                renderBuf(startWith3[Number(frameSelectorDiv.value - 1)].data.flat());
+                playing = false;
+                currentFrame = Number(frameSelectorDiv.value) - 1;
+                renderBuf(startWith3[currentFrame].data.flat());
             }
         };
 
-        renderBuf(startWith3[0].data.flat());
+        renderBuf(startWith3[currentFrame].data.flat());
         
         // for (let i = 0; i < parsedData.data.length; i++) {
         //     renderBuf(startWith3[i].data.flat());
@@ -332,12 +441,14 @@ const storeAssets = (buf) => {
 }
 
 let thingIndices = [];
+window.playerId = 1;
 
 function renderBuf(buf) {
     const soundsToStop = new Set(Object.keys(playingSounds));
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let i = 0;
     thingIndices = [];
+    let shouldRender = true;
     
     while (buf && i < buf.length) {
         const frameType = buf[i];
@@ -346,142 +457,154 @@ function renderBuf(buf) {
 
         let thing = unsquish(buf.slice(i, i + frameSize)).node;
 
-        console.log('thing!');
-        console.log(thing);
-        if (!thing.coordinates2d && thing.input && thing.text) {
-            const maxTextSize = Math.floor(canvas.width);
-            const fontSize = (thing.text.size / 100) * maxTextSize;
-            ctx.font = fontSize + "px sans-serif";
+        // console.log('thing!');
+        // console.log(thing);
 
-            const textInfo = ctx.measureText(thing.text.text);
-            let textStartX = thing.text.x * canvas.width / 100;
-            
-            if (thing.text.align && thing.text.align == 'center') {
-                textStartX -= textInfo.width / 2;
-            }
+        // if (!thing.playerIds || thing.playerIds.length == 0) {
+        //     visibleToMe = true;
+        // } else 
+        // if (thing.playerIds && thing.playerIds.length && thing.playerIds.indexOf(window.playerId) >= 0) {
+        //     visibleToMe = true;
+        // } 
+        // else {
+        //     visibleToMe = false;
+        // }
 
-            textStartX = textStartX / canvas.width * 100;
-            const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
-            const textWidthPercent = textInfo.width / canvas.width * 100;
-            const textHeightPercent = textHeight / canvas.height * 100;
+        // if we hit a node with player ids and it doesnt include mine, dont render until thats not true
 
-            const clickableChunk = [
-                !!thing.handleClick,
-                thing.input && thing.input.type,
-                thing.id,
-                [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
-            ];
-            thingIndices.push(clickableChunk);
-        } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
-            const clickableChunk = [
-                !!thing.handleClick,
-                thing.input && thing.input.type,
-                thing.id,
-                thing.coordinates2d
-            ];
+        if (thing.playerIds && thing.playerIds.length && thing.playerIds.indexOf(window.playerId) < 0) {
+            shouldRender = false;
+            console.log('this isnt for me?');
+            console.log(thing);
+        }
 
-            thingIndices.push(clickableChunk);
+        if (thing.playerIds && thing.playerIds.indexOf(window.playerId) >= 0) {
+            shouldRender = true;
+        }
 
-            if (thing.effects && thing.effects.shadow) {
-                const shadowColor = thing.effects.shadow.color;
-                ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
-                if (thing.effects.shadow.blur) {
-                    ctx.shadowBlur = thing.effects.shadow.blur;
-                }
-            }
+        if (!shouldRender) {
+            console.log("NOT FOR ME!");
+            console.log('nofdsdf');
+            console.log(thing);
+        } else {
+            if (!thing.coordinates2d && thing.input && thing.text) {
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
+                ctx.font = fontSize + "px sans-serif";
 
-            if (thing.color) {
-                ctx.globalAlpha = thing.color[3] / 255;
-            }
-            if (thing.fill !== null && thing.fill !== undefined) {
-                ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
-            }
-            if (thing.border !== undefined && thing.border !== null) {
-                ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
-                ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
-            } 
-
-            if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
-                ctx.beginPath();
+                const textInfo = ctx.measureText(thing.text.text);
+                let textStartX = thing.text.x * canvas.width / 100;
                 
-                const firstPoint = thing.coordinates2d[0];
-                ctx.moveTo(firstPoint[0] * canvas.width / 100, firstPoint[1] * canvas.height / 100);
-                for (let i = 1; i < thing.coordinates2d.length; i++) {
-                    const curPoint = thing.coordinates2d[i];
-                    ctx.lineTo(canvas.width / 100 * curPoint[0], curPoint[1] * canvas.height / 100);
+                if (thing.text.align && thing.text.align == 'center') {
+                    textStartX -= textInfo.width / 2;
                 }
-    
-                if (thing.fill !== undefined && thing.fill !== null) {
-                    ctx.fill();
+
+                textStartX = textStartX / canvas.width * 100;
+                const textHeight = textInfo.actualBoundingBoxDescent - textInfo.actualBoundingBoxAscent;
+                const textWidthPercent = textInfo.width / canvas.width * 100;
+                const textHeightPercent = textHeight / canvas.height * 100;
+
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
+                    [textStartX, thing.text.y, textStartX + textWidthPercent, thing.text.y, textStartX + textWidthPercent, thing.text.y + textHeightPercent, textStartX, thing.text.y + textHeightPercent, textStartX, thing.text.y]
+                ];
+                thingIndices.push(clickableChunk);
+            } else if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {// && thing.flll !== null) {
+                const clickableChunk = [
+                    !!thing.handleClick,
+                    thing.input && thing.input.type,
+                    thing.id,
+                    thing.coordinates2d
+                ];
+
+                thingIndices.push(clickableChunk);
+
+                if (thing.effects && thing.effects.shadow) {
+                    const shadowColor = thing.effects.shadow.color;
+                    ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                    if (thing.effects.shadow.blur) {
+                        ctx.shadowBlur = thing.effects.shadow.blur;
+                    }
                 }
-    
+
+                if (thing.color) {
+                    ctx.globalAlpha = thing.color[3] / 255;
+                }
+                if (thing.fill !== null && thing.fill !== undefined) {
+                    ctx.fillStyle = "rgba(" + thing.fill[0] + "," + thing.fill[1] + "," + thing.fill[2] + "," + thing.fill[3] + ")";
+                }
                 if (thing.border !== undefined && thing.border !== null) {
-                    ctx.stroke();
-                }
-            }
-            ctx.shadowColor = null;
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 0;
-            ctx.strokeStyle = null;
-        }
+                    ctx.lineWidth = (thing.border / 255) * .1 * canvas.width;
+                    ctx.strokeStyle = "rgba(" + thing.color[0] + "," + thing.color[1] + "," + thing.color[2] + "," + thing.color[3] + ")";
+                } 
 
-        if (thing.text) {
-            ctx.globalAlpha = thing.text.color[3] / 255;
-            ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
-            const maxTextSize = Math.floor(canvas.width);
-            const fontSize = (thing.text.size / 100) * maxTextSize;
-            ctx.font = fontSize + "px " + (!thing.text.font || thing.text.font === 'default' ? "sans-serif" : thing.text.font);
-            if (thing.text.align) {
-                ctx.textAlign = thing.text.align;
-            }
-            ctx.textBaseline = "top";
-            ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
-        }
-
-        if (thing.asset) {
-            const assetKey = Object.keys(thing.asset)[0];
-
-            if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
-                if (!playingSounds[assetKey] && audioCtx && gameAssets[assetKey].decoded) {
-                    source = audioCtx.createBufferSource();
-                    source.connect(audioCtx.destination);
-                    source.buffer = gameAssets[assetKey].data;
-                    source.onended = () => {
-                        delete playingSounds[assetKey];
+                if (thing.coordinates2d !== null && thing.coordinates2d !== undefined) {
+                    ctx.beginPath();
+                    
+                    const firstPoint = thing.coordinates2d[0];
+                    ctx.moveTo(firstPoint[0] * canvas.width / 100, firstPoint[1] * canvas.height / 100);
+                    for (let i = 1; i < thing.coordinates2d.length; i++) {
+                        const curPoint = thing.coordinates2d[i];
+                        ctx.lineTo(canvas.width / 100 * curPoint[0], curPoint[1] * canvas.height / 100);
                     }
-
-                    source.start(0, thing.asset[assetKey].startTime  || 0);//? thing.asset[assetKey].startTime / 1000 : 0);
-                    playingSounds[assetKey] = source;
-                } else if (!playingSounds[assetKey] && audioCtx) {
-                    console.warn("Cant play audio");
-                } else if (playingSounds[assetKey]) {
-                    // pause unless still referenced
-                    soundsToStop.delete(assetKey);
+        
+                    if (thing.fill !== undefined && thing.fill !== null) {
+                        ctx.fill();
+                    }
+        
+                    if (thing.border !== undefined && thing.border !== null) {
+                        ctx.stroke();
+                    }
                 }
-            } else {
-                const asset = thing.asset[assetKey];
-                let image;
+                ctx.shadowColor = null;
+                ctx.shadowBlur = 0;
+                ctx.lineWidth = 0;
+                ctx.strokeStyle = null;
+            }
 
-                if (imageCache[assetKey] && imageCache[assetKey] !== 'loading') {
-                    image = imageCache[assetKey];
-                    image.width = asset.size.x / 100 * canvas.width;
-                    image.height = asset.size.y / 100 * canvas.height;
-                    if (thing.effects && thing.effects.shadow) {
-                        const shadowColor = thing.effects.shadow.color;
-                        ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
-                        if (thing.effects.shadow.blur) {
-                            ctx.shadowBlur = thing.effects.shadow.blur;
+            if (thing.text) {
+                ctx.globalAlpha = thing.text.color[3] / 255;
+                ctx.fillStyle = `rgba(${thing.text.color[0]}, ${thing.text.color[1]}, ${thing.text.color[2]}, ${thing.text.color[3]})`;
+                const maxTextSize = Math.floor(canvas.width);
+                const fontSize = (thing.text.size / 100) * maxTextSize;
+                ctx.font = fontSize + "px " + (!thing.text.font || thing.text.font === 'default' ? "sans-serif" : thing.text.font);
+                if (thing.text.align) {
+                    ctx.textAlign = thing.text.align;
+                }
+                ctx.textBaseline = "top";
+                ctx.fillText(thing.text.text, thing.text.x * canvas.width/ 100, thing.text.y * canvas.height / 100);
+            }
+
+            if (thing.asset) {
+                const assetKey = Object.keys(thing.asset)[0];
+
+                if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
+                    if (!playingSounds[assetKey] && audioCtx && gameAssets[assetKey].decoded) {
+                        source = audioCtx.createBufferSource();
+                        source.connect(audioCtx.destination);
+                        source.buffer = gameAssets[assetKey].data;
+                        source.onended = () => {
+                            delete playingSounds[assetKey];
                         }
+
+                        source.start(0, thing.asset[assetKey].startTime  || 0);//? thing.asset[assetKey].startTime / 1000 : 0);
+                        playingSounds[assetKey] = source;
+                    } else if (!playingSounds[assetKey] && audioCtx) {
+                        console.warn("Cant play audio");
+                    } else if (playingSounds[assetKey]) {
+                        // pause unless still referenced
+                        soundsToStop.delete(assetKey);
                     }
+                } else {
+                    const asset = thing.asset[assetKey];
+                    let image;
 
-
-                    ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
-                        (asset.pos.y / 100) * canvas.height, image.width, image.height);
-                } else if (!imageCache[assetKey]) {
-                    image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
-                    imageCache[assetKey] = 'loading';
-                    image.onload = () => {
-                        imageCache[assetKey] = image;
+                    if (imageCache[assetKey] && imageCache[assetKey] !== 'loading') {
+                        image = imageCache[assetKey];
+                        image.width = asset.size.x / 100 * canvas.width;
+                        image.height = asset.size.y / 100 * canvas.height;
                         if (thing.effects && thing.effects.shadow) {
                             const shadowColor = thing.effects.shadow.color;
                             ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
@@ -490,16 +613,33 @@ function renderBuf(buf) {
                             }
                         }
 
+
                         ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
                             (asset.pos.y / 100) * canvas.height, image.width, image.height);
-                    };
+                    } else if (!imageCache[assetKey]) {
+                        image = new Image(asset.size.x / 100 * canvas.width, asset.size.y / 100 * canvas.height);
+                        imageCache[assetKey] = 'loading';
+                        image.onload = () => {
+                            imageCache[assetKey] = image;
+                            if (thing.effects && thing.effects.shadow) {
+                                const shadowColor = thing.effects.shadow.color;
+                                ctx.shadowColor = "rgba(" + shadowColor[0] + "," + shadowColor[1] + "," + shadowColor[2] + "," + shadowColor[3] + ")";
+                                if (thing.effects.shadow.blur) {
+                                    ctx.shadowBlur = thing.effects.shadow.blur;
+                                }
+                            }
 
-                    if (gameAssets[assetKey]) {
-                        image.src = gameAssets[assetKey].data;
+                            ctx.drawImage(image, (asset.pos.x / 100) * canvas.width, 
+                                (asset.pos.y / 100) * canvas.height, image.width, image.height);
+                        };
+
+                        if (gameAssets[assetKey]) {
+                            image.src = gameAssets[assetKey].data;
+                        }
                     }
                 }
-            }
 
+            }
         }
 
         i += frameSize;
