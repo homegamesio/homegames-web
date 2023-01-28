@@ -54,8 +54,12 @@ const renderFileInfo = (fileInfo, onPlayerIdChange, onPlay) => {
     playButton.onclick = () => onPlay();
 
     const frameCountDiv = document.createElement('div');
+    const sessionLengthDiv = document.createElement('div');
     const playerIdSelector = document.createElement('select');
     playerIdSelector.value = window.playerId;
+
+    const playerIdLabel = document.createElement('div');
+    playerIdLabel.innerHTML = 'Player ID: ';
 
     const idOptions = new Set(fileInfo.playerIds);
     // TODO: add this back. we dont always have spectator frames available.
@@ -78,9 +82,29 @@ const renderFileInfo = (fileInfo, onPlayerIdChange, onPlay) => {
 
     frameCountDiv.innerHTML = 'Frames: ' + fileInfo?.frameCount;
 
+    // const sessionLength = fileInfo?.frameCount > 2 ? () : 0;
+    sessionLengthDiv.innerHTML = 'Length: ' + fileInfo?.sessionLength + ' ms';
+
+    const assetListDiv = document.createElement('div');
+    assetListDiv.innerHTML = 'Assets';
+
     container.appendChild(frameCountDiv);
+    container.appendChild(sessionLengthDiv);
+
+    container.appendChild(playerIdLabel);
     container.appendChild(playerIdSelector);
     container.appendChild(playButton);
+
+    // todo: fix global
+    if (gameAssets) {
+        for (const assetKey in gameAssets) {
+            const assetEntry = document.createElement('div');
+            assetEntry.innerHTML = assetKey + ' (' + gameAssets[assetKey].type + ')';
+            assetListDiv.appendChild(assetEntry);
+        }
+
+        container.appendChild(assetListDiv);
+    }
 
     fileInfoDiv.appendChild(container);
 }
@@ -139,8 +163,10 @@ fileInputDiv.oninput = (e) => {
         console.log(seenPlayerIds)
 
         const fileInfo = {
+            assets: parsedData.assets,
             frameCount: parsedData.data.length,
-            playerIds: seenPlayerIds
+            playerIds: seenPlayerIds,
+            sessionLength: parsedData.data.length > 1 ? (parsedData.data[parsedData.data.length - 1].timestamp - parsedData.data[0].timestamp ) : 0
         };
 
         const startWith3 = parsedData.data.filter(d => d.data[0][0] === 3);
