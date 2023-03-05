@@ -2,14 +2,13 @@ const { Homepad } = require('homepad');
 const hp = new Homepad();
 
 const squishMap = {
-    '0756': require('squish-0756'),
     '0762': require('squish-0762'),
     '0765': require('squish-0765'),
     '0766': require('squish-0766')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
-let { squish, unsquish, Colors } = squishMap['0756'];
+let { squish, unsquish, Colors } = squishMap['0766'];
 
 let bezelInfo;
 
