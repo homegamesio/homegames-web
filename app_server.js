@@ -15,7 +15,6 @@ const DEFAULT_CONFIG = {
     "IS_DEMO": false,
     "HG_AUTH_DIR": null,
     "HG_CERT_PATH": null,
-    "LINK_DNS_ENABLED": false,
     "HTTPS_ENABLED": false,
     "LOG_PATH": "homegames_log.txt",
     "PUBLIC_CLIENT": false
@@ -93,9 +92,17 @@ const server = (certPath) => {
     };
 
     if (certPath) {
+        http.createServer((req, res) => {
+            const host = req.headers['host'];
+	    res.writeHead(307, {
+	        'Location': `https://${host}`
+	    });
+	    res.end();
+        }).listen(80);
+        
         https.createServer({
-            key: fs.readFileSync(certPath.keyPath).toString(),
-            cert: fs.readFileSync(certPath.certPath).toString()
+            key: fs.readFileSync(certPath + '/homegames.key').toString(),
+            cert: fs.readFileSync(certPath + '/homegames.cert').toString()
         }, app).listen(443);
     } else {
         http.createServer(app).listen(80);

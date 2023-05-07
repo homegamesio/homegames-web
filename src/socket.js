@@ -35,7 +35,7 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
 
     socket.onerror = (err) => {
         console.log("ERROR");
-        console.log(err);
+        console.log(JSON.stringify(err));
         sentClientInfo = false;
         clientInfo = undefined;
     };

@@ -2,6 +2,7 @@ const { Homepad } = require('homepad');
 const hp = new Homepad();
 
 const squishMap = {
+    '0756': require('squish-0766'),
     '0762': require('squish-0762'),
     '0765': require('squish-0765'),
     '0766': require('squish-0766')
@@ -215,7 +216,7 @@ getConfig().then(config => {
     
                 if (!hotClient) {
                     const hostname = window.location.hostname;
-                    hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
+                    hotClient = new WebSocket(`wss://${hostname}:${newPort}`);
                     hotClient.onopen = () => {
                         console.log('hot client opened');
                     }
@@ -273,7 +274,7 @@ getConfig().then(config => {
             hostname,
             playerId: window.playerId || null,
             port: socketPort,
-            secure: window.location.hostname !== 'localhost' && window.isSecureContext,
+            secure: window.location.host !== 'localhost' && window.isSecureContext,
             serverCode: window.serverCode
         }
     });
