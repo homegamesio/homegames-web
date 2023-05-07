@@ -171,7 +171,11 @@ const getCertStatus = (username, token) => new Promise((resolve, reject) => {
 });
 
 const certPathArgs = process.argv.filter(a => a.startsWith('--cert-path=')).map(a => a.replace('--cert-path=', ''));
-const certPathArg = certPathArgs && certPathArgs.length > 0 ? certPathArgs[0] : null;
+let certPathArg = certPathArgs && certPathArgs.length > 0 ? certPathArgs[0] : null;
+
+if (getConfigValue('HTTPS_ENABLED', false) && fs.existsSync(`${baseDir}/hg-certs`)) {
+    certPathArg = `${baseDir}/hg-certs`;
+}
 
 console.log("CERT PATH ARG");
 console.log(certPathArg);

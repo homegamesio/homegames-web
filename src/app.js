@@ -215,7 +215,7 @@ getConfig().then(config => {
     
                 if (!hotClient) {
                     const hostname = window.location.hostname;
-                    hotClient = new WebSocket(`ws://${hostname}:${newPort}`);
+                    hotClient = new WebSocket(`wss://${hostname}:${newPort}`);
                     hotClient.onopen = () => {
                         console.log('hot client opened');
                     }
@@ -268,12 +268,13 @@ getConfig().then(config => {
     const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
     const socketPort = window.serverCode ? 82 : HOME_PORT;
     
+    console.log('this is the one');
     socketWorker.postMessage({
         socketInfo: {
             hostname,
             playerId: window.playerId || null,
             port: socketPort,
-            secure: window.location.hostname !== 'localhost' && window.isSecureContext,
+            secure: false,//window.isSecureContext,
             serverCode: window.serverCode
         }
     });
