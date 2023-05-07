@@ -274,7 +274,7 @@ getConfig().then(config => {
             hostname,
             playerId: window.playerId || null,
             port: socketPort,
-            secure: false,//window.isSecureContext,
+            secure: window.isSecureContext,
             serverCode: window.serverCode
         }
     });
