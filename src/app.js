@@ -268,13 +268,12 @@ getConfig().then(config => {
     const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
     const socketPort = window.serverCode ? 82 : HOME_PORT;
     
-    console.log('this is the one');
     socketWorker.postMessage({
         socketInfo: {
             hostname,
             playerId: window.playerId || null,
             port: socketPort,
-            secure: window.isSecureContext,
+            secure: window.location.host !== 'localhost' && window.isSecureContext,
             serverCode: window.serverCode
         }
     });
