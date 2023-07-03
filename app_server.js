@@ -5,6 +5,21 @@ const path = require('path');
 
 const baseDir = path.dirname(require.main.filename);
 
+const DEFAULT_CONFIG = {
+    "LINK_ENABLED": true,
+    "HOMENAMES_PORT": 7400,
+    "HOME_PORT": 9801,
+    "LOG_LEVEL": "INFO",
+    "GAME_SERVER_PORT_RANGE_MIN": 8300,
+    "GAME_SERVER_PORT_RANGE_MAX": 8400,
+    "IS_DEMO": false,
+    "HG_AUTH_DIR": null,
+    "HG_CERT_PATH": null,
+    "HTTPS_ENABLED": false,
+    "LOG_PATH": "homegames_log.txt",
+    "PUBLIC_CLIENT": false
+};
+
 const PATH_MAP = {
     "/": { 
         path: "web/index.html",
@@ -45,7 +60,13 @@ const server = (certPath) => {
             res.statusCode = 200;
             res.setHeader("Content-Type", 'application/json');
             
-            const payload = fs.readFileSync(path.join(process.cwd(), 'config.json'));
+            let payload = DEFAULT_CONFIG;
+            const configPath = path.join(process.cwd(), 'config.json');
+
+            if (fs.existsSync(configPath)) {
+                payload = fs.readFileSync(configPath);
+            }
+
             res.end(payload);
         } else {
     
@@ -71,9 +92,17 @@ const server = (certPath) => {
     };
 
     if (certPath) {
+        http.createServer((req, res) => {
+            const host = req.headers['host'];
+	    res.writeHead(307, {
+	        'Location': `https://${host}`
+	    });
+	    res.end();
+        }).listen(80);
+        
         https.createServer({
-            key: fs.readFileSync(certPath.keyPath).toString(),
-            cert: fs.readFileSync(certPath.certPath).toString()
+            key: fs.readFileSync(certPath + '/homegames.key').toString(),
+            cert: fs.readFileSync(certPath + '/homegames.cert').toString()
         }, app).listen(443);
     } else {
         http.createServer(app).listen(80);
