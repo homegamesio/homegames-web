@@ -7,17 +7,18 @@ const baseDir = path.dirname(require.main.filename);
 
 const DEFAULT_CONFIG = {
     "LINK_ENABLED": true,
+    "HTTPS_ENABLED": true,
     "HOMENAMES_PORT": 7400,
     "HOME_PORT": 9801,
     "LOG_LEVEL": "INFO",
     "GAME_SERVER_PORT_RANGE_MIN": 8300,
     "GAME_SERVER_PORT_RANGE_MAX": 8400,
     "IS_DEMO": false,
-    "HG_AUTH_DIR": null,
-    "HG_CERT_PATH": null,
-    "HTTPS_ENABLED": false,
-    "LOG_PATH": "homegames_log.txt",
-    "PUBLIC_CLIENT": false
+    "BEZEL_SIZE_Y": 15,
+    "BEZEL_SIZE_X": 15,
+    "PUBLIC_GAMES": true,
+    "DOWNLOADED_GAME_DIRECTORY": "hg-games",
+    "LOG_PATH": "hg_log.txt"
 };
 
 const PATH_MAP = {
