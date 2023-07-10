@@ -61,7 +61,7 @@ const server = (certPath) => {
             res.statusCode = 200;
             res.setHeader("Content-Type", 'application/json');
             
-            let payload = DEFAULT_CONFIG;
+            let payload = JSON.stringify(DEFAULT_CONFIG);
             const configPath = path.join(process.cwd(), 'config.json');
 
             if (fs.existsSync(configPath)) {
