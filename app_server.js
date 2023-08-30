@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const reportBug = require('./report-bug');
 const { getAppDataPath } = require('homegames-common');
-const baseDir = path.dirname(require.main.filename);
+const baseDir = require.resolve('homegames-web');//path.dirname(require.main.filename);
 
 reportBug('base dir wtf ' + baseDir);
 
