@@ -8,6 +8,8 @@ const baseDir = path.dirname(require.main.filename);
 
 reportBug('base dir wtf ' + baseDir);
 
+console.log('dsfjkdsfksd 2what tthsd');
+
 const DEFAULT_CONFIG = {
     "LINK_ENABLED": true,
     "HTTPS_ENABLED": true,
@@ -59,6 +61,7 @@ const server = (certPath) => {
 
     const app = (req, res) => {
         let requestPath = req.url;
+        console.log('gogoelodfd ' + requestPath);
 
         if (requestPath === '/config.json') {
             res.statusCode = 200;
@@ -85,8 +88,12 @@ const server = (certPath) => {
             if (pathMapping) {
                 res.statusCode = 200;
                 res.setHeader("Content-Type", pathMapping.contentType);
-                reportBug('ayyyy lmao ' + require.resolve('')); 
-                const payload = fs.readFileSync(path.join(require.resolve(''), pathMapping.path));
+                console.log('dsfdsf ' + require.main.filename + ',  ' + process.cwd());
+                reportBug('ayyyy lmao ' + require.main.filename);
+                reportBug('klfkdfldfdf ' + process.cwd());
+                console.log('sdfdsfsdfdsf ' + pathMapping.path);
+                console.log(path.join(process.cwd(), pathMapping.path));
+                const payload = fs.readFileSync(path.join(process.cwd(), pathMapping.path));
                 res.end(payload);
             } else {
                 res.statusCode = 404;
