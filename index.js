@@ -178,8 +178,10 @@ try {
 	const certPathArgs = process.argv.filter(a => a.startsWith('--cert-path=')).map(a => a.replace('--cert-path=', ''));
 	let certPathArg = certPathArgs && certPathArgs.length > 0 ? certPathArgs[0] : null;
 
-	if (getConfigValue('HTTPS_ENABLED', false) && fs.existsSync(`${baseDir}/hg-certs`)) {
-	    certPathArg = `${baseDir}/hg-certs`;
+	if (!certPathArg) {
+		if (getConfigValue('HTTPS_ENABLED', false) && fs.existsSync(`${baseDir}/hg-certs`)) {
+		    certPathArg = `${baseDir}/hg-certs`;
+		}
 	}
 } catch (err) {
 	reportBug('Error getting cert path arg:\n' + certPathArg);
