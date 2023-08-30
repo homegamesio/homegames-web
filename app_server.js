@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const reportBug = require('./report-bug');
 const { getAppDataPath } = require('homegames-common');
-const baseDir = require.resolve('homegames-web');//path.dirname(require.main.filename);
+const baseDir = path.dirname(require.resolve('homegames-web'));//path.dirname(require.main.filename);
 
 reportBug('base dir wtf ' + baseDir);
 
@@ -88,12 +88,12 @@ const server = (certPath) => {
             if (pathMapping) {
                 res.statusCode = 200;
                 res.setHeader("Content-Type", pathMapping.contentType);
-                console.log('dsfdsf ' + require.main.filename + ',  ' + process.cwd());
+                // console.log('dsfdsf ' + require.main.filename + ',  ' + process.cwd());
                 reportBug('ayyyy lmao ' + require.main.filename);
                 reportBug('klfkdfldfdf ' + process.cwd());
-                console.log('sdfdsfsdfdsf ' + pathMapping.path);
-                console.log(path.join(process.cwd(), pathMapping.path));
-                const payload = fs.readFileSync(path.join(process.cwd(), pathMapping.path));
+                // console.log('sdfdsfsdfdsf ' + pathMapping.path);
+                // console.log(path.join(process.cwd(), pathMapping.path));
+                const payload = fs.readFileSync(path.join(baseDir, pathMapping.path));
                 res.end(payload);
             } else {
                 res.statusCode = 404;
