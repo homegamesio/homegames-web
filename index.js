@@ -173,6 +173,8 @@ const getCertStatus = (username, token) => new Promise((resolve, reject) => {
    req.end();
 });
 
+reportBug('what are args ' + process.argv.map(a => a.toString()));
+
 let certPathArg;
 try {
 	const certPathArgs = process.argv.filter(a => a.startsWith('--cert-path=')).map(a => a.replace('--cert-path=', ''));
@@ -186,6 +188,8 @@ try {
 } catch (err) {
 	reportBug('Error getting cert path arg:\n' + certPathArg);
 }
+
+reportBug('cert path arg is ' + certPathArg);
 
 
 reportBug('cool nice yeah this works from web');
