@@ -2,7 +2,8 @@ const http = require("http");
 const https = require("https");
 const fs = require('fs');
 const path = require('path');
-
+const reportBug = require('./report-bug');
+const { getAppDataPath } = require('homegames-common');
 const baseDir = path.dirname(require.main.filename);
 
 const DEFAULT_CONFIG = {
@@ -62,7 +63,7 @@ const server = (certPath) => {
             res.setHeader("Content-Type", 'application/json');
             
             let payload = JSON.stringify(DEFAULT_CONFIG);
-            const configPath = path.join(process.cwd(), 'config.json');
+            const configPath = path.join(getAppDataPath(), 'config.json');
 
             if (fs.existsSync(configPath)) {
                 payload = fs.readFileSync(configPath);
