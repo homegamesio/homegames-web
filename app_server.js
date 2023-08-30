@@ -6,6 +6,8 @@ const reportBug = require('./report-bug');
 const { getAppDataPath } = require('homegames-common');
 const baseDir = path.dirname(require.main.filename);
 
+reportBug('base dir wtf ' + baseDir);
+
 const DEFAULT_CONFIG = {
     "LINK_ENABLED": true,
     "HTTPS_ENABLED": true,
@@ -83,8 +85,8 @@ const server = (certPath) => {
             if (pathMapping) {
                 res.statusCode = 200;
                 res.setHeader("Content-Type", pathMapping.contentType);
-                
-                const payload = fs.readFileSync(path.join(path.dirname(require.main.filename), pathMapping.path));
+                reportBug('ayyyy lmao ' + require.resolve('')); 
+                const payload = fs.readFileSync(path.join(require.resolve(''), pathMapping.path));
                 res.end(payload);
             } else {
                 res.statusCode = 404;
@@ -92,6 +94,8 @@ const server = (certPath) => {
             }
         }
     };
+
+    reportBug('the heck');
 
     if (certPath) {
         http.createServer((req, res) => {
