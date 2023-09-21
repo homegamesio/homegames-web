@@ -4,7 +4,17 @@ const fs = require('fs');
 const path = require('path');
 const reportBug = require('./report-bug');
 const { getAppDataPath } = require('homegames-common');
-const baseDir = path.dirname(require.resolve('homegames-web'));//path.dirname(require.main.filename);
+
+let isMain = true;
+
+try {
+    require.resolve('homegames-web');
+    isMain = false;
+} catch (err) {
+    console.log('Running web as main module');
+}
+
+const baseDir = isMain ? path.dirname(require.main.filename) : path.dirname(require.resolve('homegames-web')); 
 
 reportBug('base dir wtf ' + baseDir);
 
