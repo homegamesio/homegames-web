@@ -16,10 +16,6 @@ try {
 
 const baseDir = isMain ? path.dirname(require.main.filename) : path.dirname(require.resolve('homegames-web')); 
 
-reportBug('base dir wtf ' + baseDir);
-
-console.log('dsfjkdsfksd 2what tthsd');
-
 const DEFAULT_CONFIG = {
     "LINK_ENABLED": true,
     "HTTPS_ENABLED": true,
@@ -98,11 +94,6 @@ const server = (certPath) => {
             if (pathMapping) {
                 res.statusCode = 200;
                 res.setHeader("Content-Type", pathMapping.contentType);
-                // console.log('dsfdsf ' + require.main.filename + ',  ' + process.cwd());
-                reportBug('ayyyy lmao ' + require.main.filename);
-                reportBug('klfkdfldfdf ' + process.cwd());
-                // console.log('sdfdsfsdfdsf ' + pathMapping.path);
-                // console.log(path.join(process.cwd(), pathMapping.path));
                 const payload = fs.readFileSync(path.join(baseDir, pathMapping.path));
                 res.end(payload);
             } else {

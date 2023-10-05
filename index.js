@@ -17,52 +17,7 @@ if (baseDir.endsWith('src')) {
    baseDir = baseDir.substring(0, baseDir.length - 3);
 }
 
-reportBug('yeah this STILL works from web');
-
 log.info("Starting homegames client server");
-
-const promptUser = (promptText, hideUserInput) => new Promise((resolve, reject) => {
-
-   let muted = false;
-   
-   const mutableStdout = new Writable({
-       write: (chunk, encoding, callback) => {
-           if (!muted) {
-               process.stdout.write(chunk, encoding);
-           }
-           callback && callback();
-       }
-   });
-
-   const rl = readline.createInterface({
-       input: process.stdin,
-       output: mutableStdout,
-       terminal: true
-   });
-
-   rl.question(`${promptText}\n`, function(userInput) {
-       rl.close();
-       resolve(userInput);
-   });
-
-   muted = hideUserInput;
-
-});
-
-const doLogin = () => new Promise((resolve, reject) => {
-   console.log('need to log in, get token');
-
-   promptUser('Homegames username: ', false).then(username=> {
-       promptUser('Password: ', true).then(password => {
-           login(username, password).then(tokens => {
-               resolve({ username, token: tokens.accessToken });
-           }).catch(err => {
-               console.error(err);
-               reject(err);
-           });
-       });
-   });
-});
 
 const getLocalIP = () => {
    const ifaces = os.networkInterfaces();
