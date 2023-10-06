@@ -67,7 +67,6 @@ const server = (certPath) => {
 
     const app = (req, res) => {
         let requestPath = req.url;
-        console.log('gogoelodfd ' + requestPath);
 
         if (requestPath === '/config.json') {
             res.statusCode = 200;
