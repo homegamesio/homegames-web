@@ -102,8 +102,6 @@ const server = (certPath) => {
         }
     };
 
-    reportBug('the heck');
-
     if (certPath) {
         http.createServer((req, res) => {
             const host = req.headers['host'];
