@@ -2,8 +2,19 @@ const http = require("http");
 const https = require("https");
 const fs = require('fs');
 const path = require('path');
+const reportBug = require('./report-bug');
+const { getAppDataPath } = require('homegames-common');
 
-const baseDir = path.dirname(require.main.filename);
+let isMain = true;
+
+try {
+    require.resolve('homegames-web');
+    isMain = false;
+} catch (err) {
+    console.log('Running web as main module');
+}
+
+const baseDir = isMain ? path.dirname(require.main.filename) : path.dirname(require.resolve('homegames-web')); 
 
 const DEFAULT_CONFIG = {
     "LINK_ENABLED": true,
@@ -62,7 +73,7 @@ const server = (certPath) => {
             res.setHeader("Content-Type", 'application/json');
             
             let payload = JSON.stringify(DEFAULT_CONFIG);
-            const configPath = path.join(process.cwd(), 'config.json');
+            const configPath = path.join(getAppDataPath(), 'config.json');
 
             if (fs.existsSync(configPath)) {
                 payload = fs.readFileSync(configPath);
@@ -82,8 +93,7 @@ const server = (certPath) => {
             if (pathMapping) {
                 res.statusCode = 200;
                 res.setHeader("Content-Type", pathMapping.contentType);
-                
-                const payload = fs.readFileSync(path.join(path.dirname(require.main.filename), pathMapping.path));
+                const payload = fs.readFileSync(path.join(baseDir, pathMapping.path));
                 res.end(payload);
             } else {
                 res.statusCode = 404;
