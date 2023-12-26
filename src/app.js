@@ -711,7 +711,7 @@ const click = function(clickInfo = {}) {
     }
     const x = mousePos[0];
     const y = mousePos[1];
-    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
+    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;
     const clickY = y / clientHeight * 100;
     
     if (clickInfo.action) {
@@ -901,6 +901,13 @@ window.addEventListener("mousedown", function(e) {
 
 window.addEventListener("mouseup", function(e) {
     mouseDown = false;
+
+
+    mousePos = [e.clientX, e.clientY];
+    const clickX = (mousePos[0] - canvas.offsetLeft) / clientWidth * 100;
+    const clickY = mousePos[1] / clientHeight * 100;
+    const payload = {type: "mouseup",  data: {x: clickX, y: clickY}};
+    socketWorker.postMessage(JSON.stringify(payload));
 });
 
 canvas.addEventListener("mousemove", function(e) {
