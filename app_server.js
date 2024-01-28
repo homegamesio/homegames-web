@@ -16,7 +16,10 @@ try {
 
 const baseDir = isMain ? path.dirname(require.main.filename) : path.dirname(require.resolve('homegames-web')); 
 
-const DEFAULT_CONFIG = {
+const relayConfigPath = path.join(baseDir, 'relay.config');
+const relayConfig = fs.existsSync(relayConfigPath) ? JSON.parse(fs.readFileSync(relayConfigPath)) : null;
+
+const DEFAULT_CONFIG = relayConfig || {
     "LINK_ENABLED": true,
     "HOMENAMES_PORT": 7400,
     "HOME_PORT": 9801,
@@ -70,7 +73,7 @@ const server = (certPath) => {
         if (requestPath === '/config.json') {
             res.statusCode = 200;
             res.setHeader("Content-Type", 'application/json');
-
+            
             let payload = JSON.stringify(DEFAULT_CONFIG);
             const configPath = path.join(getAppDataPath(), 'config.json');
 
