@@ -6,6 +6,7 @@ const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
 const process = require('process');
+const reportBug = require('./report-bug');
 const { getConfigValue, login, log, authWorkflow, guaranteeDir, guaranteeCerts } = require('homegames-common');
 
 const { server } = require('./app_server');
@@ -177,5 +178,12 @@ if (getConfigValue('HTTPS_ENABLED', false) && fs.existsSync(`${baseDir}/hg-certs
     certPathArg = `${baseDir}/hg-certs`;
 }
 
-server(certPathArg);
+log.info('cert path arg is ' + certPathArg);
+
+try {
+	server(certPathArg);
+} catch (err) {
+	reportBug('Failed to start web server:\n' + err.toString()); 
+}
+
 

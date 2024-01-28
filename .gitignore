@@ -1,5 +1,5 @@
-web/bundle.js
 node_modules
+hg-certs
 .hg_certs
 hg-certs
 .hg_auth
