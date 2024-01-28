@@ -1,18 +1,12 @@
 const { Homepad } = require('homepad');
 const hp = new Homepad();
 
-
-// if creating an electron build, these should all point to a version that works with electron. if not, these can be the proper referenced versions
 const squishMap = {
-    '0756': require('squish-0756'),
+    '0756': require('squish-0766'),
     '0762': require('squish-0762'),
     '0765': require('squish-0765'),
     '0766': require('squish-0766'),
-    '0767': require('squish-0767'),
-    '1000': require('squish-1000'),
-    '1004': require('squish-1004'),
-    '1005': require('squish-1005'),
-    '1006': require('squish-1006')
+    '0767': require('squish-0767')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -712,7 +706,7 @@ const click = function(clickInfo = {}) {
     }
     const x = mousePos[0];
     const y = mousePos[1];
-    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;
+    const clickX = (x - canvas.offsetLeft) / clientWidth * 100;//) - canvas.offsetLeft;
     const clickY = y / clientHeight * 100;
     
     if (clickInfo.action) {
@@ -902,13 +896,6 @@ window.addEventListener("mousedown", function(e) {
 
 window.addEventListener("mouseup", function(e) {
     mouseDown = false;
-
-
-    mousePos = [e.clientX, e.clientY];
-    const clickX = (mousePos[0] - canvas.offsetLeft) / clientWidth * 100;
-    const clickY = mousePos[1] / clientHeight * 100;
-    const payload = {type: "mouseup",  data: {x: clickX, y: clickY}};
-    socketWorker.postMessage(JSON.stringify(payload));
 });
 
 canvas.addEventListener("mousemove", function(e) {

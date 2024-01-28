@@ -1,6 +1,6 @@
 {
   "name": "homegames-web",
-  "version": "0.9.431",
+  "version": "0.7.80",
   "description": "Play games at home- the web package",
   "directories": {
     "lib": "lib"
@@ -35,17 +35,13 @@
   "homepage": "https://github.com/homegamesio/homegames#readme",
   "dependencies": {
     "assert": "^2.0.0",
-    "homegames-common": "1.0.8",
+    "homegames-common": "0.3.2",
     "homepad": "^0.1.0",
     "squish-0756": "npm:squishjs@0.7.66",
     "squish-0762": "npm:squishjs@0.7.62",
     "squish-0765": "npm:squishjs@0.7.65",
     "squish-0766": "npm:squishjs@0.7.66",
-    "squish-0767": "npm:squishjs@0.7.67",
-    "squish-1000": "npm:squishjs@1.0.0",
-    "squish-1004": "npm:squishjs@1.0.4",
-    "squish-1005": "npm:squishjs@1.0.5",
-    "squish-1006": "npm:squishjs@1.0.6"
+    "squish-0767": "npm:squishjs@0.7.67"
   },
   "devDependencies": {
     "webpack": "^5.65.0",
