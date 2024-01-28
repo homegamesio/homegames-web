@@ -4,7 +4,6 @@ const hp = new Homepad();
 
 // if creating an electron build, these should all point to a version that works with electron. if not, these can be the proper referenced versions
 const squishMap = {
-<<<<<<< HEAD
     '0756': require('squish-0756'),
     '0762': require('squish-0762'),
     '0765': require('squish-0765'),
@@ -12,14 +11,8 @@ const squishMap = {
     '0767': require('squish-0767'),
     '1000': require('squish-1000'),
     '1004': require('squish-1004'),
-    '1005': require('squish-1005')
-=======
-    '0756': require('squish-0766'),
-    '0762': require('squish-0762'),
-    '0765': require('squish-0765'),
-    '0766': require('squish-0766'),
-    '0767': require('squish-0767')
->>>>>>> 6598ccc (stuff from server)
+    '1005': require('squish-1005'),
+    '1006': require('squish-1006')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
