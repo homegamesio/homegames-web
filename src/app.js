@@ -11,7 +11,8 @@ const squishMap = {
     '0767': require('squish-0767'),
     '1000': require('squish-1000'),
     '1004': require('squish-1004'),
-    '1005': require('squish-1005')
+    '1005': require('squish-1005'),
+    '1006': require('squish-1006')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -967,3 +968,4 @@ window.addEventListener('resize', () => {
     currentBuf && currentBuf.length > 1 && currentBuf[0] == 3 && renderBuf(currentBuf);
     sendClientInfo();
 });
+
