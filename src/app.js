@@ -62,73 +62,86 @@ const showErrorDiv = (childDiv) => {
 	document.body.appendChild(errorDiv);
 };
 
+const getClientInfo = () => {
+    // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
+    const userAgent = navigator.userAgent;
 
-getConfig().then(config => {
-    const HOME_PORT = config.HOME_PORT || 7001;
+    const info = {};
 
-    if (!!config.PUBLIC_CLIENT) {
-	    const urlParams = new URLSearchParams(window.location.search);
-	    const code = urlParams.get('code');
-	    if (code) {
-		const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-            	window.history.pushState({path: newUrl}, '', newUrl);
-	    }
-	    window.serverCode = code ? code.toUpperCase() : window.prompt('Enter server code').toUpperCase();
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
+        info.deviceType = "tablet";
+    } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
+        info.deviceType = "mobile";
+    } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
+        info.deviceType = "tablet";
+    } else { 
+        info.deviceType = "desktop";
     }
 
-    const performanceDiv = document.getElementById('performance-data');
-    
-    const getClientInfo = () => {
-        // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
-        const userAgent = navigator.userAgent;
-    
-        const info = {};
-    
-        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
-            info.deviceType = "tablet";
-        } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
-            info.deviceType = "mobile";
-        } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
-            info.deviceType = "tablet";
-        } else { 
-            info.deviceType = "desktop";
+    const _clientWidth = window.innerWidth;
+    const _clientHeight = window.innerHeight;
+
+    let aspectRatio = null;
+
+    if (_clientWidth && _clientHeight) {
+        aspectRatio = _clientWidth / _clientHeight;
+    }
+
+    info.aspectRatio = aspectRatio;
+
+    return info;
+};
+
+const initializeSocket = (config, messageHandler) => new Promise((resolve, reject) => {
+    const publicGameHost = config.PUBLIC_GAME_HOST || `public.homegames.link`;
+    const publicGamePort = config.PUBLIC_GAME_PORT || 82;
+    const localPort = config.HOME_PORT || 7001;
+    const hostname = window.serverCode ? publicGameHost : window.location.hostname;
+    const socketPort = window.serverCode ? publicGamePort : localPort;
+
+    socketWorker.postMessage({
+        socketInfo: {
+            playerId: window.playerId || null,
+            port: Number(socketPort),
+            secure: window.location.host !== 'localhost' && window.isSecureContext,
+            serverCode: window.serverCode,
+	    spectating,
+            hostname
         }
-    
-        const _clientWidth = window.innerWidth;
-        const _clientHeight = window.innerHeight;
-    
-        let aspectRatio = null;
-    
-        if (_clientWidth && _clientHeight) {
-            aspectRatio = _clientWidth / _clientHeight;
+    });
+
+    socketWorker.onmessage = (msg) => {
+        if (msg.data.type === 'SOCKET_READY') {
+            sendClientInfo().then(() => {
+                socketWorker.onmessage = messageHandler;
+                resolve();
+            });
         }
+    }
+});
+
+const sendClientInfo = () => new Promise((resolve, reject) => {
+    const clientInfo = getClientInfo();
+    const initData = {
+        clientInfo
+    }
     
-        info.aspectRatio = aspectRatio;
-    
-        return info;
-    };
-    
-    const sendClientInfo = () => {
-        const clientInfo = getClientInfo();
-        const initData = {
-            clientInfo
-        }
-        
-        const searchParams = new URLSearchParams(window.location.search);
-        // init with a specific game if the url contains a game parameter
-        if (searchParams.get('gameId') && searchParams.get('versionId')) {
-            const gameId = searchParams.get('gameId');
-            const versionId = searchParams.get('versionId');
-            const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-            window.history.pushState({path: newUrl}, '', newUrl);
-            initData.requestedGame = {gameId, versionId};
-        }
-    
-        socketWorker.postMessage(initData);
-    };
-    
-    socketWorker.onmessage = (socketMessage) => {
-        if (socketMessage.data.constructor === Object) {
+    const searchParams = new URLSearchParams(window.location.search);
+    // init with a specific game if the url contains a game parameter
+    if (searchParams.get('gameId') && searchParams.get('versionId')) {
+        const gameId = searchParams.get('gameId');
+        const versionId = searchParams.get('versionId');
+        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+        window.history.pushState({path: newUrl}, '', newUrl);
+        initData.requestedGame = {gameId, versionId};
+    }
+
+    socketWorker.postMessage(initData);
+    resolve();
+});
+
+const messageHandler = (socketMessage) => {
+    if (socketMessage.data.constructor === Object) {
             if (socketMessage.data.type === 'SOCKET_CLOSE') {
                 rendering = false;
             }
@@ -245,48 +258,214 @@ getConfig().then(config => {
             }
         }
     };
-    
-    const avgGraph = document.createElement('canvas');
-    const lastNGraph = document.createElement('canvas');
-    
-    const avgGraphLabel = document.createElement('h3');
-    const lastNGraphLabel = document.createElement('h3');
-    
-    const initPerformance = () => {
-        if (!performanceProfiling) {
-            performanceProfiling = true;
-    
-            const div1 = document.createElement('div');
-            const div2 = document.createElement('div');
-    
-            div1.style = 'float: left; margin-right: 50px';
-            div2.style = 'float: left';
-    
-            div1.appendChild(avgGraph);
-            div2.appendChild(lastNGraph);
-    
-            performanceDiv.appendChild(div1);
-            div1.appendChild(avgGraphLabel);
-    
-            performanceDiv.appendChild(div2);
-            div2.appendChild(lastNGraphLabel);
-        }
-    };
 
-    const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
-    const socketPort = window.serverCode ? 82 : HOME_PORT;
-    
-    socketWorker.postMessage({
-        socketInfo: {
-            hostname,
-            playerId: window.playerId || null,
-            port: socketPort,
-            secure: window.location.host !== 'localhost' && window.isSecureContext,
-            serverCode: window.serverCode
-        }
-    });
-    
-    sendClientInfo();
+getConfig().then(config => {
+    initializeSocket(config, messageHandler);
+//    const HOME_PORT = config.HOME_PORT || 7001;
+//
+//    if (!!config.PUBLIC_CLIENT) {
+//	    const urlParams = new URLSearchParams(window.location.search);
+//	    const code = urlParams.get('code');
+//	    if (code) {
+//		const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+//            	window.history.pushState({path: newUrl}, '', newUrl);
+//	    }
+//	    window.serverCode = code ? code.toUpperCase() : window.prompt('Enter server code').toUpperCase();
+//    }
+//
+//    const performanceDiv = document.getElementById('performance-data');
+//    
+//    const getClientInfo = () => {
+//        // s/o to Abdessalam Benharira - https://dev.to/itsabdessalam/detect-current-device-type-with-javascript-490j
+//        const userAgent = navigator.userAgent;
+//    
+//        const info = {};
+//    
+//        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
+//            info.deviceType = "tablet";
+//        } else if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(userAgent)) {
+//            info.deviceType = "mobile";
+//        } else if (navigator.maxTouchPoints && navigator.maxTouchPoints > 2) {
+//            info.deviceType = "tablet";
+//        } else { 
+//            info.deviceType = "desktop";
+//        }
+//    
+//        const _clientWidth = window.innerWidth;
+//        const _clientHeight = window.innerHeight;
+//    
+//        let aspectRatio = null;
+//    
+//        if (_clientWidth && _clientHeight) {
+//            aspectRatio = _clientWidth / _clientHeight;
+//        }
+//    
+//        info.aspectRatio = aspectRatio;
+//    
+//        return info;
+//    };
+//    
+//    
+//    socketWorker.onmessage = (socketMessage) => {
+//        if (socketMessage.data.constructor === Object) {
+//            if (socketMessage.data.type === 'SOCKET_CLOSE') {
+//                rendering = false;
+//            }
+//
+//	    if (socketMessage.data.type === 'ERROR') {
+//		rendering = false;
+//		const childDiv = document.createElement('div');
+//		const textChildDiv = document.createElement('div');
+//		textChildDiv.innerHTML = 'Error: ' + socketMessage.data.message;    
+//		const linkDiv = document.createElement('a');
+//		linkDiv.href = 'https://public.homegames.link/code';
+//		linkDiv.innerHTML = "Try again";
+//		childDiv.appendChild(textChildDiv);
+//		childDiv.appendChild(linkDiv);
+//		showErrorDiv(childDiv);
+//	    }
+//        } else {
+//            currentBuf = new Uint8ClampedArray(socketMessage.data);
+//            if (currentBuf[0] == 2) {
+//                window.playerId = currentBuf[1];
+//		if (currentBuf.length == 2) {
+//            		socketWorker.postMessage({type: 'finishReady', playerId: window.playerId });
+//		}
+//		if (currentBuf.length > 2) {
+//                 	 const aspectRatioX = currentBuf[2];
+//                 	 const aspectRatioY = currentBuf[3];
+//                 	 aspectRatio = {x: aspectRatioX, y: aspectRatioY};
+//    
+//                 	 bezelInfo = {x: currentBuf[4], y: currentBuf[5]};
+//    
+//                 	 const squishVersionLength = currentBuf[6];
+//                 	 const squishVersionString = String.fromCharCode.apply(null, currentBuf.slice(7, 7 + currentBuf[6]));
+//                 	 window.squishVersion = squishVersionString;
+//                 	const squishVersion = squishMap[squishVersionString];
+//                 	if (squishVersion) {
+//                 	    squish = squishVersion.squish;
+//                 	    unsquish = squishVersion.unsquish;
+//                 	    Colors = squishVersion.Colors;
+//                 	 }
+//                 	 initCanvas();
+//		}
+//            } else if (currentBuf[0] == 1) {
+//                storeAssets(currentBuf);
+//            } else if (currentBuf[0] == 9) {
+//                // for now i know its just aspectRatio
+//                aspectRatio = {x: currentBuf[1], y: currentBuf[2]};
+//                initCanvas();
+//            } else if (currentBuf[0] === 5) {
+//                spectating = false;
+//                let a = String(currentBuf[1]);
+//                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+//                let newPort = a + b;
+//     		const hostname2 = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+//    		const socketPort2 = window.serverCode ? 82 : newPort;
+//    
+//                socketWorker.postMessage({
+//                    socketInfo: {
+//                        hostname: hostname2,//window.location.hostname,
+//                        playerId: window.playerId || null,
+//                        port: Number(socketPort2),
+//                        secure: window.location.host !== 'localhost' && window.isSecureContext,
+//            		serverCode: window.serverCode,
+//			spectating
+//                    }
+//                });
+//    
+//            } else if (currentBuf[0] === 6) {
+//                spectating = true;
+//                let a = String(currentBuf[1]);
+//                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+//                let newPort = a + b;
+//    
+//    		const hostname2 = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+//    		const socketPort2 = window.serverCode ? 82 : newPort;
+//                socketWorker.postMessage({
+//                    socketInfo: {
+//                        hostname: hostname2,// window.location.hostname,
+//                        playerId: window.playerId || null,
+//                        port: Number(socketPort2),
+//                        secure: window.location.host !== 'localhost' && window.isSecureContext,
+//            		serverCode: window.serverCode,
+//                        spectating
+//                    }
+//                });
+//    
+//            } else if (currentBuf[0] === 7) {
+//                initPerformance();
+//            } else if (currentBuf[0] === 8) { 
+//                let a = String(currentBuf[1]);
+//                let b = String(currentBuf[2]).length > 1 ? currentBuf[2] : "0" + currentBuf[2];
+//                let newPort = a + b;
+//    
+//                if (!hotClient) {
+//                    const hostname = window.location.hostname;
+//                    hotClient = new WebSocket(`wss://${hostname}:${newPort}`);
+//                    hotClient.onopen = () => {
+//                        console.log('hot client opened');
+//                    }
+//    
+//                    hotClient.onerror = (err) => {
+//                        console.log('hot client err');
+//                        console.log(err);
+//                    }
+//    
+//                    hotClient.onmessage = (msg) => {
+//                        if (msg.data === 'reload') {
+//                            location.reload();
+//                        }
+//                    }
+//                }
+//            } else if (currentBuf[0] == 3 && !rendering) {
+//                rendering = true;
+//                req();
+//            }
+//        }
+//    };
+//    
+//    const avgGraph = document.createElement('canvas');
+//    const lastNGraph = document.createElement('canvas');
+//    
+//    const avgGraphLabel = document.createElement('h3');
+//    const lastNGraphLabel = document.createElement('h3');
+//    
+//    const initPerformance = () => {
+//        if (!performanceProfiling) {
+//            performanceProfiling = true;
+//    
+//            const div1 = document.createElement('div');
+//            const div2 = document.createElement('div');
+//    
+//            div1.style = 'float: left; margin-right: 50px';
+//            div2.style = 'float: left';
+//    
+//            div1.appendChild(avgGraph);
+//            div2.appendChild(lastNGraph);
+//    
+//            performanceDiv.appendChild(div1);
+//            div1.appendChild(avgGraphLabel);
+//    
+//            performanceDiv.appendChild(div2);
+//            div2.appendChild(lastNGraphLabel);
+//        }
+//    };
+//
+//    const hostname = window.serverCode ? 'public.homegames.link' : window.location.hostname;
+//    const socketPort = window.serverCode ? 82 : HOME_PORT;
+//    
+//    socketWorker.postMessage({
+//        socketInfo: {
+//            hostname,
+//            playerId: window.playerId || null,
+//            port: socketPort,
+//            secure: window.location.host !== 'localhost' && window.isSecureContext,
+//            serverCode: window.serverCode
+//        }
+//    });
+//    
+//    sendClientInfo();
 })
 
 let gamepad;

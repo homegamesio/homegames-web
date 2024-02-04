@@ -5,10 +5,9 @@ let sentClientInfo;
 let code;
 let needReadyFinish = false;
 let _spectating = false;
-const initSocket = (hostname, port, playerId, secure, spectating, serverCode) => {
+const initSocket = (hostname, port, playerId, secure, spectating, serverCode) => new Promise((resolve, reject) => {
     const wsProtocol = secure ? 'wss' : 'ws';
 	_spectating = spectating;
-    //socket = new WebSocket('ws://54.176.82.103:82');//`${wsProtocol}://` + hostname + ":" + port);
     socket = new WebSocket(`${wsProtocol}://${hostname}:${port}`);
 
     socket.binaryType = "arraybuffer";
@@ -31,6 +30,8 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
                 spectating
             }));
 	}
+
+        resolve(socket);
     };
 
     socket.onerror = (err) => {
@@ -63,29 +64,47 @@ const initSocket = (hostname, port, playerId, secure, spectating, serverCode) =>
         postMessage(msg.data);
 	    }
     };
-
-    return socket;
-};
+});
 
 onmessage = (msg) => {
-    if (msg.data.type && msg.data.type == 'finishReady') {
-            socket.send(JSON.stringify({
-                type: "ready",
-		code: code || null,
-                id: msg.data.playerId,
-                clientInfo,
-                spectating: _spectating
-            }));
-	
-    } else if (msg.data.socketInfo) {
-        socket && socket.close();
-        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure, msg.data.socketInfo.spectating, msg.data.socketInfo.serverCode);
+    if (msg.data.socketInfo) {
+        if (socket) {
+            socket.close();
+        }
+
+        const { hostname, port, playerId, secure, spectating, serverCode } = msg.data.socketInfo;
+
+        initSocket(hostname, port, playerId, secure, spectating, serverCode).then(() => {
+            postMessage({ type: 'SOCKET_READY' });
+        });
+    } else if (msg.data.type && msg.data.type === 'finishReady') {
+        socket.send(JSON.stringify({
+            type: "ready",
+	    code: code || null,
+            id: msg.data.playerId,
+            clientInfo,
+            spectating: _spectating
+        }));
     } else if (msg.data.clientInfo) {
         clientInfo = msg.data;
-        if (socket && socket.readyState == 1) { 
+        if (socket && socket.readyState === 1) {
             socket.send(JSON.stringify(clientInfo));
         }
     } else {
-        socket && socket.readyState == 1 && socket.send(msg.data);
+        if (socket && socket.readyState === 1) {
+            socket.send(msg.data);
+        }
     }
+//	
+//    } else if (msg.data.socketInfo) {
+//        socket && socket.close();
+//        initSocket(msg.data.socketInfo.hostname, msg.data.socketInfo.port, msg.data.socketInfo.playerId, msg.data.socketInfo.secure, msg.data.socketInfo.spectating, msg.data.socketInfo.serverCode);
+//    } else if (msg.data.clientInfo) {
+//        clientInfo = msg.data;
+//        if (socket && socket.readyState == 1) { 
+//            socket.send(JSON.stringify(clientInfo));
+//        }
+//    } else {
+//        socket && socket.readyState == 1 && socket.send(msg.data);
+//    }
 };
