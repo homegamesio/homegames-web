@@ -33,6 +33,10 @@ try {
 	reportBug('Error getting cert path arg:\n' + certPathArg);
 }
 
+if (!certPathArg) {
+    certPathArg = getConfigValue('HG_CERT_PATH', null);
+}
+
 log.info('cert path arg is ' + certPathArg);
 
 if (getConfigValue('HTTPS_ENABLED', false) && fs.existsSync(`${baseDir}/hg-certs`)) {
