@@ -116,7 +116,7 @@ getConfig().then(config => {
         
         const searchParams = new URLSearchParams(window.location.search);
         // init with a specific game if the url contains a game parameter
-        if (searchParams.get('gameId') && searchParams.get('versionId')) {
+        if (searchParams.get('gameId')) {// && searchParams.get('versionId')) {
             const gameId = searchParams.get('gameId');
             const versionId = searchParams.get('versionId');
             const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
