@@ -944,6 +944,7 @@ function isMobile() {
 if (isMobile()) {
 } else {
     document.addEventListener("keydown", function(e) {
+        unlock();
         if (keyMatters(e) && !keysDown["Meta"]) {
             e.preventDefault();
             keydown(e.key);
