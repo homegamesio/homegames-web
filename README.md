@@ -18,3 +18,4 @@ This will run a homegames web client at `localhost:80`. It will attempt to conne
 The socket connection stuff runs as a [worker](https://developer.mozilla.org/en-US/docs/Web/API/Worker) created by the web client. After an initial handshake with the game server, it receives squished game data over a web socket. The worker is also responsible for sending keyboard and mouse/touch input from the client to the game server.
 
 ## Rendering
+The web client uses an HTML canvas to render data after "unsquishing" or deserializing game data. This includes 2D shapes as well as images. Also supports playing audio.
