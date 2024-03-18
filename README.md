@@ -1,25 +1,20 @@
-# Homegames - the web stuff
+# Homegames - the web client
+This repo contains the "official" Homegames web client, used to connect to game sessions created by homegames-core.
 
-This repo contains a NodeJS server that serves the Homegames web client. 
+**If you are just trying to play games, you probably don't need this. The best way to do that is downloading builds available at [homegames.io](https://homegames.io)**
 
-`npm install`
+## Setup
+Requires: Node.js >= 18
+```
+npm install
+npm run build
+npm run start
+```
 
-`webpack`
+This will run a homegames web client at `localhost:80`. It will attempt to connect to a game server at port `7001` or `HOME_PORT` if defined in `config.json`
 
-`node app_server.js`
+## Socket
+`src/socket.js`
+The socket connection stuff runs as a [worker](https://developer.mozilla.org/en-US/docs/Web/API/Worker) created by the web client. After an initial handshake with the game server, it receives squished game data over a web socket. The worker is also responsible for sending keyboard and mouse/touch input from the client to the game server.
 
-There's way more info available in our [getting started wiki](https://github.com/homegamesio/homegames/wiki/Getting-Started)
-
-#### Run with Docker
-
-Want to run homegames core easily with docker? Well here ya go bud:
-
-
-1. Navigate to root directory of homegames project
-
-2. Run `docker build -t homegames-web .`
-
-3. Run `docker run -dp 80:80 homegames-web`
-
-4. That's it! The docker container should be up and running, and exposed/published on port 80 (localhost) on whatever machine you ran the above commands on
-
+## Rendering
