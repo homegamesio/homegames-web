@@ -598,6 +598,8 @@ const updateGamepads = () => {
 window.addEventListener('gamepadconnected', updateGamepads);
 window.addEventListener('gamepaddisconnected', updateGamepads);
 
+let currentHover = null;
+
 function req() {
     if (!rendering) {
         return;
@@ -629,8 +631,19 @@ function req() {
 
 
         if (clickInfo.isClickable || clickInfo.action) {
+            if (!currentHover || Number(clickInfo.nodeId) !== Number(currentHover)) {
+                if (currentHover) {
+                    offHover(currentHover);
+                }
+                currentHover = clickInfo.nodeId;
+                onHover(clickInfo.nodeId);
+            }
             canvas.style.cursor = 'pointer';
         } else {
+            if (currentHover) {
+                offHover(currentHover);
+                currentHover = null;
+            }
             canvas.style.cursor = 'initial';
         }
 
@@ -704,6 +717,20 @@ const updatePerfGraphs = () => {
         makeDot(avgGraph, avgGraphCtx, i * 10, 100 - (10 * (graphData[i].avgRenderTime)));
         makeDot(lastNGraph, lastNGraphCtx, i * 10, 100 - (fps));
     }
+};
+
+const onHover = (nodeId) => {
+    socketWorker.postMessage(JSON.stringify({
+        type: 'onhover',
+        nodeId
+    }));
+};
+
+const offHover = (nodeId) => {
+    socketWorker.postMessage(JSON.stringify({
+        type: 'offhover',
+        nodeId
+    }));
 };
 
 const click = function(clickInfo = {}) {
