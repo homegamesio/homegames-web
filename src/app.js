@@ -13,7 +13,8 @@ const squishMap = {
     '1004': require('squish-1004'),
     '1005': require('squish-1005'),
     '1006': require('squish-1006'),
-    '1007': require('squish-1007')
+    '1007': require('squish-1007'),
+    '1009': require('squish-1009')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
@@ -410,6 +411,7 @@ function renderBuf(buf) {
     let i = 0;
     thingIndices = [];
     
+    const seenSoundAssets = new Set();
     while (buf && i < buf.length) {
         const frameType = buf[i];
 
@@ -511,12 +513,13 @@ function renderBuf(buf) {
             const assetKey = Object.keys(thing.asset)[0];
 
             if (gameAssets[assetKey] && gameAssets[assetKey]["type"] === "audio") {
+                seenSoundAssets.add(assetKey);
                 if (!playingSounds[assetKey] && audioCtx && gameAssets[assetKey].decoded) {
                     source = audioCtx.createBufferSource();
                     source.connect(audioCtx.destination);
                     source.buffer = gameAssets[assetKey].data;
                     source.onended = () => {
-                        delete playingSounds[assetKey];
+                        //delete playingSounds[assetKey];
                     }
 
                     source.start(0, thing.asset[assetKey].startTime  || 0);//? thing.asset[assetKey].startTime / 1000 : 0);
@@ -585,6 +588,14 @@ function renderBuf(buf) {
         const source = playingSounds[assetKey];
         source.stop();
     });
+
+    for (let k in playingSounds) {
+        if (!seenSoundAssets.has(k)) {
+            const source = playingSounds[k];
+            source.stop();
+            delete playingSounds[k];
+        }
+    }
  
 }
 

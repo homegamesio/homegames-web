@@ -46,7 +46,8 @@
     "squish-1004": "npm:squishjs@1.0.4",
     "squish-1005": "npm:squishjs@1.0.5",
     "squish-1006": "npm:squishjs@1.0.6",
-    "squish-1007": "npm:squishjs@1.0.7"
+    "squish-1007": "npm:squishjs@1.0.7",
+    "squish-1009": "npm:squishjs@1.0.9"
   },
   "devDependencies": {
     "webpack": "^5.65.0",
