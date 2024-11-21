@@ -1,5 +1,4 @@
 const { Readable, Writable } = require('stream');
-const unzipper = require('unzipper');
 const https = require('https');
 const os = require('os');
 const fs = require('fs');
