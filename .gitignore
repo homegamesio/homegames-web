@@ -4,4 +4,4 @@ hg-certs
 .hg_auth
 config.json
 homegames_log.txt
-web/
+web/bundle.js
