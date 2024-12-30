@@ -16,7 +16,8 @@ const squishMap = {
     '1007': require('squish-1007'),
     '1009': require('squish-1009'),
     '1010': require('squish-1010'),
-    '120': require('squish-120')
+    '120': require('squish-120'),
+    '130': require('squish-130')
 };
 
 //let { squish, unsquish, Colors } = require('squishjs');
