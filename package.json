@@ -1,6 +1,6 @@
 {
   "name": "homegames-web",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Play games at home- the web package",
   "directories": {
     "lib": "lib"
